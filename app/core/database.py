@@ -15,10 +15,8 @@ Base = declarative_base()
 def get_db():
     db = SessionLocal()
     try:
-        print("Database connection established")
         yield db
     finally:
         db.close()
-        print("Database connection closed")
 
 # Test in test_db_connection.py
