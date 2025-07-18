@@ -20,8 +20,8 @@ def detail_movie(movie_id: int, db: Session = Depends(get_db)):
 
 # Thêm một phim mới
 @router.post("/movies")
-def add_movie(movie: MovieCreate, db: Session = Depends(get_db)):
-    return create_movie(db, movie)
+def add_movie(movie_in: MovieCreate, db: Session = Depends(get_db)):
+    return create_movie(db, movie_in)
 
 # Xóa một phim theo ID
 @router.delete("/movies/{movie_id}")
@@ -30,5 +30,5 @@ def remove_movie(movie_id: int, db: Session = Depends(get_db)):
 
 # Cập nhật thông tin một phim theo ID
 @router.put("/movies/{movie_id}")
-def edit_movie(movie_id: int, movie: MovieUpdate, db: Session = Depends(get_db)):
-    return update_movie(db, movie_id, movie)
+def edit_movie(movie_id: int, movie_in: MovieUpdate, db: Session = Depends(get_db)):
+    return update_movie(db, movie_id, movie_in)
