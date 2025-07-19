@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.api.v1 import movies, users
+from app.api.v1 import auth, movies, users
 # from app.core.database import Base, engine
 
 
@@ -9,6 +9,7 @@ app = FastAPI(title="Cinema Booking API", version="1.0.0")
 
 app.include_router(movies.router, prefix="/api/v1", tags=["Movies"])
 app.include_router(users.router,  prefix="/api/v1",tags=["Users"])
+app.include_router(auth.router,  prefix="/api/v1",tags=["Auth"])
 
 @app.get("/")
 async def root():
