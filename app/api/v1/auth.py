@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -9,10 +8,12 @@ from app.schemas.user import UserLogin, UserRegister, UserResponse
 from app.services.auth_service import login, register
 router = APIRouter()
 
+# Đăng ký tài khoản người dùng mới.
 @router.post("/register",response_model= UserResponse)
 def auth_register(user_in: UserRegister, db: Session = Depends(get_db)):
-        return register(db, user_in)
+    return register(db, user_in)
 
+# Đăng nhập tài khoản.
 @router.post("/login")
 def auth_login(user_in: UserLogin, db: Session = Depends(get_db)):
     return login(db, user_in)

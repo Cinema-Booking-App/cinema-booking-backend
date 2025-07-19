@@ -11,6 +11,6 @@ app.include_router(movies.router, prefix="/api/v1", tags=["Movies"])
 app.include_router(users.router,  prefix="/api/v1",tags=["Users"])
 app.include_router(auth.router,  prefix="/api/v1",tags=["Auth"])
 
-@app.get("/")
-async def root():
-    return {"message": "Chào mừng đến với Cinema Booking API"}
+# @app.get("/")
+# async def root():
+#     return {"message": "Chào mừng đến với Cinema Booking API"}
