@@ -20,7 +20,16 @@ class UserUpdate(BaseModel):
     role: Optional[UserRoleEnum] = None
     password: Optional[str] = None
 
+class UserRegister(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone_number: str
+    password: str
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+    
 class UserResponse(UserBase):
     user_id: int
     created_at: datetime
@@ -28,3 +37,4 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
