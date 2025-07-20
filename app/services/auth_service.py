@@ -1,6 +1,7 @@
 
 from nt import access
 from weakref import ref
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
@@ -32,7 +33,7 @@ def register(db: Session, user_in : UserRegister):
 def login(db: Session, user_in: UserLogin):
     user = db.query(User).filter(User.email == user_in.email).first()
     if not user or not pwd_context.verify(user_in.password, getattr(user, "password_hash", None)):
-        return None
+        raise HTTPException(status_code=401, detail="Invalid email or password")
     access_token = create_access_token({"sub": user.email, "role": str(user.role)})
     refresh_token = create_access_token({"sub": user.email})
     return {
