@@ -1,6 +1,7 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.user import User
-from app.schemas.user import UserResponse
+from app.schemas.user import UserResponse, UserUpdate
 from passlib.context import CryptContext
 from app.schemas.user import UserCreate
 
@@ -18,6 +19,7 @@ def get_user_by_id(db: Session, user_id: int):
         return UserResponse.from_orm(user)
     return None
 
+# Tạo người dùng mới
 def create_user(db: Session, user_in: UserCreate):
     try:
         hashed_password = pwd_context.hash(user_in.password)
@@ -33,6 +35,37 @@ def create_user(db: Session, user_in: UserCreate):
         db.commit()
         db.refresh(user)
         return UserResponse.from_orm(user)
-    except Exception:
+    except Exception as e:
         db.rollback()
-        raise
+        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+
+#Xóa người dùng theo id
+def delete_user(db: Session, user_id: int):
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        db.delete(user)
+        db.commit()
+        # trả về tin nhắn xóa thành công
+        return {"message": "User deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+
+#Sửa người dùng theo id
+def update_user(db: Session, user_id: int, user_in: UserUpdate):
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        # Cập nhật thông tin người dùng
+        updated_user = user_in.dict(exclude_unset=True)
+        for key, value in updated_user.items():
+            setattr(user, key, value)
+        db.commit()
+        db.refresh(user)
+        return UserResponse.from_orm(user)
+    except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")

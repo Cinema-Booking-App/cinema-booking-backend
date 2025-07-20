@@ -18,7 +18,6 @@ class UserUpdate(BaseModel):
     phone_number: Optional[str] = None
     status: Optional[UserStatusEnum] = None
     role: Optional[UserRoleEnum] = None
-    password: Optional[str] = None
 
 class UserRegister(BaseModel):
     full_name: str
