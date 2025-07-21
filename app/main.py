@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from app.utils.response import error_response
-from app.api.v1 import auth, movies, theater, users
+from app.api.v1 import auth, movies, seat_type, theater, users
 # from app.core.database import Base, engine
 
 
@@ -13,6 +13,8 @@ app.include_router(movies.router, prefix="/api/v1", tags=["Movies"])
 app.include_router(users.router,  prefix="/api/v1",tags=["Users"])
 app.include_router(auth.router,  prefix="/api/v1",tags=["Auth"])
 app.include_router(theater.router,  prefix="/api/v1",tags=["Theater"])
+app.include_router(seat_type.router,  prefix="/api/v1",tags=["Seat Type"])
+
 @app.get("/")
 async def root():
     return RedirectResponse(url="/docs")
