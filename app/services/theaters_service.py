@@ -1,21 +1,25 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from app.models.theater import Theater
-from app.schemas.theater import TheaterCreate, TheaterUpdate, TheaterResponse
+from app.models.theaters import Theaters
+from app.schemas.theaters import TheaterCreate, TheaterUpdate, TheaterResponse
 
 def get_all_theaters(db: Session):
-    theaters = db.query(Theater).all()
-    return [TheaterResponse.from_orm(t) for t in theaters]
+    try:
+        theaters = db.query(Theaters).all()
+        return [TheaterResponse.from_orm(t) for t in theaters]
+    except Exception as e : 
+        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+
 
 def get_theater_by_id(db: Session, theater_id: int):
-    theater = db.query(Theater).filter(Theater.theater_id == theater_id).first()
+    theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
     if not theater:
         raise HTTPException(status_code=404, detail="Theater not found")
     return TheaterResponse.from_orm(theater)
 
 def create_theater(db: Session, theater_in: TheaterCreate):
     try:
-        db_theater = Theater(**theater_in.dict())
+        db_theater = Theaters(**theater_in.dict())
         db.add(db_theater)
         db.commit()
         db.refresh(db_theater)
@@ -26,7 +30,7 @@ def create_theater(db: Session, theater_in: TheaterCreate):
 
 def delete_theater(db: Session, theater_id: int):
     try:
-        theater = db.query(Theater).filter(Theater.theater_id == theater_id).first()
+        theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
         if not theater:
             raise HTTPException(status_code=404, detail="Theater not found")
         db.delete(theater)
@@ -38,7 +42,7 @@ def delete_theater(db: Session, theater_id: int):
 
 def update_theater(db: Session, theater_id: int, theater_in: TheaterUpdate):
     try:
-        theater = db.query(Theater).filter(Theater.theater_id == theater_id).first()
+        theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
         if not theater:
             raise HTTPException(status_code=404, detail="Theater not found")
         updated_theater = theater_in.dict(exclude_unset=True)
@@ -53,6 +57,7 @@ def update_theater(db: Session, theater_id: int, theater_in: TheaterUpdate):
 
 # Lây danh sách các thành phố khác nhau
 def get_distinct_cities(db: Session):
-    result = db.query(Theater.city).distinct().all()
+    result = db.query(Theaters.city).distinct().all()
     # Lấy ra danh sách city, loại bỏ None nếu cần
     return [row.city for row in result if row.city] 
+

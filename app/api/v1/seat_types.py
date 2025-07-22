@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.schemas.seat_type import SeatTypeCreate
-from app.services.seat_type_service import *
+from app.schemas.seat_types import SeatTypeCreate
+from app.services.seat_types_service import *
 from app.utils.response import success_response
 
 

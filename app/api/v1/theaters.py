@@ -2,12 +2,10 @@ from typing import List
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.services.theater_service import *
-from app.schemas.theater import TheaterCreate, TheaterUpdate
+from app.services.theaters_service import *
+from app.schemas.theaters import TheaterCreate, TheaterUpdate
 from fastapi import APIRouter
 from app.utils.response import success_response
-from sqlalchemy import distinct
-from app.models.theater import Theater
 
 router = APIRouter()
 

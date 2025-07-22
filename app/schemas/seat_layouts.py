@@ -43,4 +43,4 @@ class SeatTemplateCreate(BaseModel):
 
 # Schema tạo layout kèm danh sách seat_templates
 class SeatLayoutWithTemplatesCreate(SeatLayoutBase):
-    seat_templates: List[SeatTemplateCreate]
+    seat_templates: List[SeatTemplateCreate] = []
