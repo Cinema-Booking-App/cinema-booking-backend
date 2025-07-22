@@ -2,8 +2,8 @@ from typing import List
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.services.movie_service import *
-from app.schemas.movie import MovieCreate, MovieUpdate
+from app.services.movies_service import *
+from app.schemas.movies import MovieCreate, MovieUpdate
 from fastapi import APIRouter
 from app.utils.response import success_response
 

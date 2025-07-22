@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Numeric, Text
 from sqlalchemy.sql import text
 from app.core.database import Base
 
-class SeatType(Base):
+class SeatTypes(Base):
     __tablename__ = "seat_types"
     seat_type_id = Column(Integer, primary_key=True, index=True)
     type_name  = Column(String(255), unique=True, nullable=False)

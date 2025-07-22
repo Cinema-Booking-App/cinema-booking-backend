@@ -13,7 +13,7 @@ class UserRoleEnum(enum.Enum):
     staff = 'staff'
     customer = 'customer'
 
-class User(Base):
+class Users(Base):
     __tablename__ = "users"
     user_id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(255), nullable=False, index=True)

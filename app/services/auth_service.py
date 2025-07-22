@@ -1,20 +1,20 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.core.security import create_access_token
-from app.models.user import User, UserStatusEnum ,UserRoleEnum
-from app.schemas.user import UserLogin, UserRegister, UserResponse
-from app.services.user_service import pwd_context
+from app.models.user import Users, UserStatusEnum ,UserRoleEnum
+from app.schemas.users import UserLogin, UserRegister, UserResponse
+from app.services.users_service import pwd_context
 
 
 def register(db: Session, user_in : UserRegister):
     try:
         # Kiểm tra xem email đã tồn tại chưa
-        existing_user = db.query(User).filter(User.email == user_in.email).first()
+        existing_user = db.query(Users).filter(Users.email == user_in.email).first()
         if existing_user:
             raise HTTPException(status_code=400, detail="Email đã tồn tại")
         
         hashed_password = pwd_context.hash(user_in.password)
-        user = User(
+        user = Users(
             full_name=user_in.full_name,
             email=user_in.email,
             phone_number=user_in.phone_number,
@@ -33,7 +33,7 @@ def register(db: Session, user_in : UserRegister):
             detail=f"Lỗi dữ liệu: {str(e)}"
         ) 
 def login(db: Session, user_in: UserLogin):
-    user = db.query(User).filter(User.email == user_in.email).first()
+    user = db.query(Users).filter(Users.email == user_in.email).first()
     if not user or not pwd_context.verify(user_in.password, getattr(user, "password_hash", None)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     access_token = create_access_token({"sub": user.email, "role": str(user.role)})

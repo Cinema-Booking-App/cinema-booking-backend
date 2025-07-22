@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
-class SeatTemplate(Base):
+class SeatTemplates(Base):
     __tablename__ = "seat_templates"
     template_id = Column(Integer, primary_key=True, index=True)
     layout_id = Column(Integer, ForeignKey("seat_layouts.layout_id"), nullable=False)

@@ -13,7 +13,7 @@ class MovieStatusEnum(enum.Enum):
     now_showing = 'now_showing'
     ended = 'ended'
 
-class Movie(Base):
+class Movies(Base):
     __tablename__ = "movies"
     movie_id = Column(Integer, primary_key=True, index=True)  # ID duy nhất, tự tăng
     title = Column(String(255), nullable=False, index=True)  # Tên phim (bắt buộc)
