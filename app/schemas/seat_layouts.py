@@ -31,7 +31,7 @@ class SeatLayoutWithTemplatesResponse(SeatLayoutResponse):
     seat_templates: List[SeatTemplateResponse]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class SeatTemplateCreate(BaseModel):
     row_number: int
