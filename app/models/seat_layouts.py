@@ -12,4 +12,4 @@ class SeatLayouts(Base):
 
     # Thêm relationship với SeatTemplate để có thể truy cập danh sách mẫu ghế
      # back_populates  để thiết lập quan hệ ngược từ SeatTemplate đến SeatLayout
-    seat_templates = relationship("SeatTemplate", back_populates="layout", cascade="all, delete-orphan")
+    seat_templates = relationship("SeatTemplates", back_populates="layout", cascade="all, delete-orphan")

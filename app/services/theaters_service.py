@@ -4,8 +4,12 @@ from app.models.theaters import Theaters
 from app.schemas.theaters import TheaterCreate, TheaterUpdate, TheaterResponse
 
 def get_all_theaters(db: Session):
-    theaters = db.query(Theaters).all()
-    return [TheaterResponse.from_orm(t) for t in theaters]
+    try:
+        theaters = db.query(Theaters).all()
+        return [TheaterResponse.from_orm(t) for t in theaters]
+    except Exception as e : 
+        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+
 
 def get_theater_by_id(db: Session, theater_id: int):
     theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
@@ -56,3 +60,4 @@ def get_distinct_cities(db: Session):
     result = db.query(Theaters.city).distinct().all()
     # Lấy ra danh sách city, loại bỏ None nếu cần
     return [row.city for row in result if row.city] 
+

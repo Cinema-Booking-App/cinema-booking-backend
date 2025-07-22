@@ -14,4 +14,4 @@ class SeatTemplates(Base):
     is_active = Column(Boolean, default=True) 
 
     # Thêm relationship với SeatLayout để lấy thông tin layout
-    layout = relationship("SeatLayout", back_populates="seat_templates")
+    layout = relationship("SeatLayouts", back_populates="seat_templates")

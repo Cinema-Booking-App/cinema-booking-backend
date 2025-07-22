@@ -3,9 +3,8 @@ from typing import Optional
 from datetime import datetime
 
 class RoomsBase(BaseModel):
-    theater_id = int
-    room_name = str
-    layout_id = int
+    room_name : str
+    layout_id : Optional[int] = None
 
 class RoomCreate(RoomsBase):
     pass
@@ -16,7 +15,8 @@ class RoomUpdate(BaseModel):
     layout_id: Optional[int] = None
 
 class RoomResponse(RoomsBase):
-    room_id = int
+    room_id : int
+    theater_id : int =  None
     created_at: Optional[datetime] = None
     
     class Config: 
