@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.seat_layouts import SeatLayoutWithTemplatesResponse
 from app.services.seat_layouts_service import *
 from app.utils.response import success_response
 
