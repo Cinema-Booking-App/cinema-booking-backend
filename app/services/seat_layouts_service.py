@@ -1,10 +1,9 @@
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 from typing import List, Set, Tuple
-from app.models.seat_layouts import SeatLayouts
-from app.models.seat_templates import SeatTemplates
+from app.models.seat_layouts import SeatLayouts 
+from app.models.seat_templates import SeatTemplates ,SeatTypeEnum
 from app.schemas.seat_layouts import SeatLayoutWithTemplatesCreate
 
 
@@ -57,7 +56,7 @@ def create_seat_layout_with_templates(db: Session, layout_in: SeatLayoutWithTemp
                     row_number=seat_template_data.row_number,
                     column_number=seat_template_data.column_number,
                     seat_code=seat_template_data.seat_code,
-                    seat_type_id=seat_template_data.seat_type_id,
+                    seat_type=SeatTypeEnum(seat_template_data.seat_type), 
                     is_edge=seat_template_data.is_edge,
                     is_active=seat_template_data.is_active
                 )
@@ -104,6 +103,7 @@ def generate_default_seat_templates(layout_id: int , total_rows: int, total_colu
                     seat_code=seat_code,
                     is_edge=is_edge,
                     is_active=True,
+                    seat_type = SeatTypeEnum.regular.value  # Mặc định là ghế thường
                 )
                 seat_templates.append(seat_template)
     
