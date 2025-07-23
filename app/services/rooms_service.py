@@ -10,15 +10,29 @@ def get_room_by_id(db: Session, room_id: int):
         raise HTTPException(status_code=404, detail="Room not found")
     return RoomResponse.from_orm(room)
 
+# Lấy tất cả các phòng trong rạp
+def get_all_rooms(db: Session):
+    try:
+        rooms = db.query(Rooms).all()
+        if not rooms:
+            return []
+        return [RoomResponse.from_orm(room) for room in rooms]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
+    
 # Lấy danh sách phòng theo ID của rạp
 def get_rooms_by_theater_id(db: Session, theater_id: int):
     try:
+        theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
+        if not theater:
+            raise HTTPException(status_code=404, detail="Theater not found")
+        
         rooms = db.query(Rooms).filter(Rooms.theater_id == theater_id).all()
         if not rooms:
             return []
         return [RoomResponse.from_orm(room) for room in rooms]
     except Exception as e :
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 # Thêm phòng cho rạp
 def create_room_to_theater(db: Session, theater_id: int, room_in: RoomCreate):
@@ -35,10 +49,10 @@ def create_room_to_theater(db: Session, theater_id: int, room_in: RoomCreate):
         db.add(room)
         db.commit()
         db.refresh(room)
-        return room
+        return RoomResponse.from_orm(room)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
     
 # Xóa phòng theo ID
 def delete_room(db: Session, room_id: int):
@@ -51,7 +65,7 @@ def delete_room(db: Session, room_id: int):
         return True
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 # Cập nhật thông tin phòng
 def update_room(db: Session, room_id: int, room_in: RoomCreate):
@@ -67,4 +81,6 @@ def update_room(db: Session, room_id: int, room_in: RoomCreate):
         return room
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
+
+# 

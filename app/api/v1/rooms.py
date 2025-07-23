@@ -1,16 +1,20 @@
+from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.rooms import RoomCreate
-from app.services.rooms_service import create_room_to_theater, get_rooms_by_theater_id, get_room_by_id
+from app.services.rooms_service import create_room_to_theater, get_all_rooms, get_rooms_by_theater_id, get_room_by_id
 from app.utils.response import success_response
 
 router = APIRouter()
 
 # Lấy danh sách phòng theo ID của rạp
-@router.get("/theaters/{theater_id}/rooms")
-async def get_rooms_by_theater(theater_id: int, db: Session = Depends(get_db)):
-    rooms = get_rooms_by_theater_id(db, theater_id)
+@router.get("/rooms")
+async def get_rooms_by_theater(theater_id: Optional[int] = None, db: Session = Depends(get_db)):
+    if theater_id is None:
+        rooms = get_all_rooms(db)
+    else:
+        rooms = get_rooms_by_theater_id(db, theater_id)
     return success_response(rooms)
 
 # Lấy thông tin phòng theo ID của phòng
@@ -35,3 +39,4 @@ def delete_room(room_id: int, db: Session = Depends(get_db)):
 def update_room(room_id: int, room_in: RoomCreate, db: Session = Depends(get_db)):
     updated_room = update_room(db, room_id, room_in)
     return success_response(updated_room)
+

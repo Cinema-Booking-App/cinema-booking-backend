@@ -28,7 +28,6 @@ class Showtimes(Base):
     format = Column(Enum(FormatTypeEnum ,name="format_type"), nullable=False, default=FormatTypeEnum.TWO_D ,server_default='TWO_D')
     ticket_price = Column(Numeric(10,2), nullable=False)
     status = Column(Enum(StatusShowtimeEnum), nullable=False, default=StatusShowtimeEnum.active ,server_default='active')
-    available_seats = Column(Integer, nullable=True) # Số ghế còn trống 
     language = Column(Enum(LanguageEnum), nullable=False, default=LanguageEnum.original ,server_default='original')
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now()) 

@@ -20,8 +20,6 @@ class Movies(Base):
     genre = Column(String(100))  # Thể loại phim
     duration = Column(Integer, nullable=False)  # Thời lượng (phút, bắt buộc)
     age_rating = Column(Enum(AgeRatingEnum), nullable=True)  # Độ tuổi: P, C13, C16, C18
-    language = Column(String(50))  # Ngôn ngữ phim
-    format = Column(String(50))  # Định dạng: 2D, 3D, IMAX
     description = Column(Text)  # Mô tả phim
     release_date = Column(Date)  # Ngày khởi chiếu
     trailer_url = Column(String(255))  # Link trailer

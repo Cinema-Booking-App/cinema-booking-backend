@@ -9,7 +9,6 @@ class ShowtimesBase(BaseModel):
     ticket_price: float
     status: str
     language: str
-    available_seats : int 
 
 class ShowtimesCreate(ShowtimesBase):
     pass
