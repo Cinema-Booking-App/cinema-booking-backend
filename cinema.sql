@@ -1,5 +1,3 @@
-create schema if not exists public;
-
 CREATE TYPE "age_rating_type" AS ENUM (
   'P',
   'C13',
@@ -174,12 +172,15 @@ CREATE TABLE "rooms" (
 CREATE TABLE "showtimes" (
   "showtime_id" serial PRIMARY KEY,
   "movie_id" int NOT NULL,
-  "screen_id" int NOT NULL,
-  "show_date" date NOT NULL,
-  "show_time" time NOT NULL,
-  "format" varchar(50),
+  "room_id" int NOT NULL,
+  "show_datetime" timestamptz NOT NULL,
+  "format" "ENUM(2D,3D,IMAX,4DX)" NOT NULL,
   "ticket_price" numeric(10,2) NOT NULL,
-  "created_at" timestamp DEFAULT (CURRENT_TIMESTAMP)
+  "status" "ENUM(active,cancelled,sold_out)" NOT NULL DEFAULT 'active',
+  "language" "ENUM(sub_vi,dub_vi,original)" NOT NULL DEFAULT 'sub_vi',
+  "available_seats" int,
+  "created_at" timestamp DEFAULT (CURRENT_TIMESTAMP),
+  "updated_at" timestamp DEFAULT (CURRENT_TIMESTAMP)
 );
 
 CREATE TABLE "tickets" (
@@ -228,7 +229,11 @@ CREATE UNIQUE INDEX ON "seat_templates" ("layout_id", "seat_code");
 
 CREATE UNIQUE INDEX ON "seats" ("room_id", "seat_number");
 
-CREATE INDEX ON "showtimes" ("show_date");
+CREATE INDEX ON "showtimes" ("show_datetime");
+
+CREATE INDEX ON "showtimes" ("movie_id");
+
+CREATE INDEX ON "showtimes" ("room_id");
 
 CREATE UNIQUE INDEX ON "transaction_tickets" ("transaction_id", "ticket_id");
 
@@ -282,7 +287,7 @@ ALTER TABLE "seats" ADD FOREIGN KEY ("room_id") REFERENCES "rooms" ("room_id") O
 
 ALTER TABLE "showtimes" ADD FOREIGN KEY ("movie_id") REFERENCES "movies" ("movie_id") ON DELETE CASCADE;
 
-ALTER TABLE "showtimes" ADD FOREIGN KEY ("screen_id") REFERENCES "rooms" ("room_id") ON DELETE CASCADE;
+ALTER TABLE "showtimes" ADD FOREIGN KEY ("room_id") REFERENCES "rooms" ("room_id") ON DELETE CASCADE;
 
 ALTER TABLE "tickets" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("user_id") ON DELETE SET NULL;
 
