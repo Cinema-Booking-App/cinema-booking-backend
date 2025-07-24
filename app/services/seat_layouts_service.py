@@ -67,7 +67,7 @@ def create_seat_layout_with_templates(db: Session, layout_in: SeatLayoutWithTemp
         
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 def delete_seat_layout(db: Session, layout_id: int):
     try:
@@ -79,7 +79,7 @@ def delete_seat_layout(db: Session, layout_id: int):
         return True
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
     
 
 # Tự động tạo template cho layout mới

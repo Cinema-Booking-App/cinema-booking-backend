@@ -22,7 +22,7 @@ def get_movie_by_id(db: Session, movie_id: int):
 def create_movie(db: Session, movie_in: MovieCreate):
     try:
         # Tạo đối tượng Movie từ dữ liệu đầu vào
-        db_movie = Movies(**movie_in.dict())
+        db_movie = Movies(**movie_in.dict(exclude_unset=True))
         # Thêm vào session
         db.add(db_movie)
         # Lưu thay đổi vào database
@@ -33,7 +33,7 @@ def create_movie(db: Session, movie_in: MovieCreate):
     except Exception as e:
         # Nếu có lỗi, rollback transaction
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 # Xóa phim theo id
 def delete_movie(db: Session, movie_id: int):
@@ -50,7 +50,7 @@ def delete_movie(db: Session, movie_id: int):
     except Exception as e:
         # Nếu có lỗi, rollback transaction
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 # Cập nhật thông tin phim theo id
 def update_movie(db: Session, movie_id: int, movie_in: MovieUpdate):
@@ -73,5 +73,5 @@ def update_movie(db: Session, movie_id: int, movie_in: MovieUpdate):
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail=f"Lỗi dữ liệu: {str(e)}"
+            detail=f" {str(e)}"
         ) 

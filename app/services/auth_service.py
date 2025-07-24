@@ -30,7 +30,7 @@ def register(db: Session, user_in : UserRegister):
         db.rollback()
         raise HTTPException(
             status_code=400,
-            detail=f"Lỗi dữ liệu: {str(e)}"
+            detail=f" {str(e)}"
         ) 
 def login(db: Session, user_in: UserLogin):
     user = db.query(Users).filter(Users.email == user_in.email).first()

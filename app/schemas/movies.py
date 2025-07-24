@@ -8,8 +8,6 @@ class MovieBase(BaseModel):
     duration: int
     year: Optional[int] = None
     age_rating: Optional[str] = None
-    language: Optional[str] = None
-    format: Optional[str] = None
     description: Optional[str] = None
     release_date: Optional[date] = None
     trailer_url: Optional[str] = None
@@ -27,8 +25,6 @@ class MovieUpdate(BaseModel):
     duration: Optional[int] = None
     year: Optional[int] = None
     age_rating: Optional[str] = None
-    language: Optional[str] = None
-    format: Optional[str] = None
     description: Optional[str] = None
     release_date: Optional[date] = None
     trailer_url: Optional[str] = None

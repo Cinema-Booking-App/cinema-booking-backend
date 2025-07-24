@@ -93,8 +93,6 @@ CREATE TABLE "movies" (
   "genre" varchar(100),
   "duration" int NOT NULL,
   "age_rating" age_rating_type NOT NULL,
-  "language" varchar(50),
-  "format" varchar(50),
   "description" text,
   "release_date" date,
   "trailer_url" varchar(255),
@@ -169,13 +167,12 @@ CREATE TABLE "seat_templates" (
 CREATE TABLE "seats" (
   "seat_id" serial PRIMARY KEY,
   "room_id" int NOT NULL,
-  "layout_id" int NOT NULL,
-  "seat_type" seat_type DEFAULT 'regular',
-  "seat_number" varchar(10) NOT NULL,
-  "is_available" boolean DEFAULT true,
-  "is_edge" boolean DEFAULT false,
   "row_number" int NOT NULL,
   "column_number" int NOT NULL,
+  "seat_code" varchar(10) NOT NULL,
+  "seat_type" seat_type DEFAULT 'regular',
+  "is_edge" boolean DEFAULT false,
+  "is_available" boolean DEFAULT true,
   "created_at" timestamp DEFAULT (CURRENT_TIMESTAMP)
 );
 
@@ -196,7 +193,6 @@ CREATE TABLE "showtimes" (
   "ticket_price" numeric(10,2) NOT NULL,
   "status" showtimes_status NOT NULL DEFAULT 'active',
   "language" language_type NOT NULL DEFAULT 'original',
-  "available_seats" int,
   "created_at" timestamp DEFAULT (CURRENT_TIMESTAMP),
   "updated_at" timestamp DEFAULT (CURRENT_TIMESTAMP)
 );

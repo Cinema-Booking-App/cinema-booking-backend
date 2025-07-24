@@ -8,7 +8,7 @@ def get_all_theaters(db: Session):
         theaters = db.query(Theaters).all()
         return [TheaterResponse.from_orm(t) for t in theaters]
     except Exception as e : 
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 
 def get_theater_by_id(db: Session, theater_id: int):
@@ -26,7 +26,7 @@ def create_theater(db: Session, theater_in: TheaterCreate):
         return db_theater
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 def delete_theater(db: Session, theater_id: int):
     try:
@@ -38,7 +38,7 @@ def delete_theater(db: Session, theater_id: int):
         return True
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 def update_theater(db: Session, theater_id: int, theater_in: TheaterUpdate):
     try:
@@ -50,10 +50,10 @@ def update_theater(db: Session, theater_id: int, theater_in: TheaterUpdate):
             setattr(theater, key, value)
         db.commit()
         db.refresh(theater)
-        return theater
+        return TheaterResponse.from_orm(theater)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 # Lây danh sách các thành phố khác nhau
 def get_distinct_cities(db: Session):

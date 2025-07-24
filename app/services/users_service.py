@@ -37,7 +37,7 @@ def create_user(db: Session, user_in: UserCreate):
         return UserResponse.from_orm(user)
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f" {str(e)}")
 
 #Xóa người dùng theo id
 def delete_user(db: Session, user_id: int):
@@ -51,7 +51,7 @@ def delete_user(db: Session, user_id: int):
         return {"message": "User deleted successfully"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Lỗi dữ liệu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f" {str(e)}")
 
 #Sửa người dùng theo id
 def update_user(db: Session, user_id: int, user_in: UserUpdate):
@@ -68,4 +68,4 @@ def update_user(db: Session, user_id: int, user_in: UserUpdate):
         return UserResponse.from_orm(user)
     except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Lỗi dữ liệu: {str(e)}")
+            raise HTTPException(status_code=500, detail=f" {str(e)}")
