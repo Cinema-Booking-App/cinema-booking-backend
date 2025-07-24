@@ -1,6 +1,12 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+import enum
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey ,Enum
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+class SeatTypeEnum(enum.Enum):
+    regular  = "regular"
+    vip = "vip"
+    couple = "couple"
 
 class SeatTemplates(Base):
     __tablename__ = "seat_templates"
@@ -9,7 +15,7 @@ class SeatTemplates(Base):
     row_number = Column(Integer, nullable=False)
     column_number = Column(Integer, nullable=False)
     seat_code = Column(String(10), nullable=False)
-    seat_type_id = Column(Integer, ForeignKey("seat_types.seat_type_id"), nullable=False, default=1)
+    seat_type = Column(Enum(SeatTypeEnum , name="seat_type"), default=SeatTypeEnum.regular, server_default='regular')
     is_edge = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True) 
 

@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from app.schemas.rooms import RoomCreate, RoomResponse
 from sqlalchemy.orm import Session
 from app.models.rooms import Rooms
-
+from app.models.theaters import Theaters
 # Lấy thông tin phòng theo ID
 def get_room_by_id(db: Session, room_id: int):
     room = db.query(Rooms).filter(Rooms.room_id == room_id).first()
@@ -24,7 +24,7 @@ def get_rooms_by_theater_id(db: Session, theater_id: int):
 def create_room_to_theater(db: Session, theater_id: int, room_in: RoomCreate):
     try:
         #Kiểm tra rạp có tồn tại không
-        theater = db.query(Rooms).filter(Rooms.theater_id == theater_id).first()
+        theater = db.query(Theaters).filter(Theaters.theater_id == theater_id).first()
         if not theater:
             raise HTTPException(status_code=404, detail="Theater not found")
         room = Rooms(
