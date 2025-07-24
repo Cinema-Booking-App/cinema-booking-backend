@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.rooms import RoomCreate
-from app.services.rooms_service import create_room_to_theater, get_all_rooms, get_rooms_by_theater_id, get_room_by_id
+from app.services.rooms_service import create_room_to_theater, get_all_rooms, get_rooms_by_theater_id, get_room_by_id, get_seats_in_room
 from app.utils.response import success_response
 
 router = APIRouter()
@@ -40,3 +40,9 @@ def update_room(room_id: int, room_in: RoomCreate, db: Session = Depends(get_db)
     updated_room = update_room(db, room_id, room_in)
     return success_response(updated_room)
 
+
+# Lấy danh sách ghế trong phòng
+@router.get("/rooms/{room_id}/seats")
+def get_all_seats_in_room(room_id: int, db: Session = Depends(get_db)):
+    seats =  get_seats_in_room(db, room_id)
+    return success_response(seats)

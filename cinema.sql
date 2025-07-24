@@ -167,7 +167,11 @@ CREATE TABLE "seat_templates" (
 CREATE TABLE "seats" (
   "seat_id" serial PRIMARY KEY,
   "room_id" int NOT NULL,
-  "seat_number" varchar(10) NOT NULL,
+  "row_number" int NOT NULL,
+  "column_number" int NOT NULL,
+  "seat_code" varchar(10) NOT NULL,
+  "seat_type" seat_type DEFAULT 'regular',
+  "is_edge" boolean DEFAULT false,
   "is_available" boolean DEFAULT true,
   "created_at" timestamp DEFAULT (CURRENT_TIMESTAMP)
 );
