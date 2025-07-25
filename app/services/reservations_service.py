@@ -75,3 +75,20 @@ def create_reserved_seats(reservation_in : SeatReservationsCreate , db : Session
         return SeatReservationsResponse.from_orm(db_reservation)
     except Exception as e :
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail= e)
+
+
+#Xóa đặt chỗ tự động khi hết hạn
+def delete_expired_reservations(db: Session):
+    try:
+        current_time = datetime.now(timezone.utc)
+        expired_reservations = db.query(SeatReservations).filter(
+            SeatReservations.status == 'pending',
+            SeatReservations.expires_at < current_time
+        ).all()
+
+        for reservation in expired_reservations:
+            db.delete(reservation)
+
+        db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
