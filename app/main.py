@@ -1,12 +1,13 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from app.core.middleware import setup_middleware
 from app.utils.response import error_response
 from app.api.v1 import auth, movies, reservations, rooms, seat_layouts, showtimes, theaters, users, promotions
 
 # from app.core.database import Base, engine
 
-
 app = FastAPI(title="Cinema Booking API", version="1.0.0")
+setup_middleware(app)
 # Tạo bảng cơ sở dữ liệu
 # Base.metadata.create_all(bind=engine)
 

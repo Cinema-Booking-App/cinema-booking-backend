@@ -1,5 +1,5 @@
-from unittest.mock import Base
 from sqlalchemy import Column, Integer, String, DateTime, text, UniqueConstraint
+from app.core.database import Base
 
 class SeatReservations(Base):
     __tablename__ = "seat_reservations"

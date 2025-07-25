@@ -1,26 +1,47 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 from app.models.seat_reservations import SeatReservations
 from app.models.seats import Seats
 from app.models.showtimes import Showtimes
 from app.schemas.reservations import SeatReservationsCreate, SeatReservationsResponse
 
 
-def create_reservations(reservation_in : SeatReservationsCreate , db : Session):
+#Lấy danh sách các ghế đã đặt
+def get_reserved_seats(showtime_id: int, db: Session):
     try:
+        showtime = db.query(Showtimes).filter(Showtimes.showtime_id == showtime_id).first()
+        if not showtime:
+            raise HTTPException(status_code=404, detail="Showtime not found")
+        # Lấy danh sách các ghế đã đặt cho showtime cụ thể
+        reserved_seats = db.query(SeatReservations).filter(
+            SeatReservations.showtime_id == showtime_id,
+            SeatReservations.status.in_(["confirmed", "pending"])
+        ).all()
+        
+        return [SeatReservationsResponse.from_orm(reservation) for reservation in reserved_seats]
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+# Tạo một hàm để tạo đặt chỗ
+def create_reserved_seats(reservation_in : SeatReservationsCreate , db : Session):
+    try:
+        showtime = db.query(Showtimes).filter(Showtimes.showtime_id == reservation_in.showtime_id).first()
         seat = db.query(Seats).filter(Seats.seat_id == reservation_in.seat_id).first()
         if not showtime:
             raise HTTPException(status_code=404 , detail="Showtime not found")
-        showtime = db.query(Showtimes).filter(Showtimes.showtime_id == reservation_in.showtime_id).first()
         if not seat:
             raise HTTPException(status_code=404 , detail="Seat not found")
         existing_reservation = db.query(SeatReservations).filter(
             SeatReservations.showtime_id == reservation_in.showtime_id,
             SeatReservations.seat_id == reservation_in.seat_id,
-             (
-                SeatReservations.status == 'confirmed'
-                | (SeatReservations.status == 'pending' and SeatReservations.expires_at > datetime.now(timezone.utc))
+            or_(
+                SeatReservations.status == 'confirmed',
+                and_(
+                    SeatReservations.status == 'pending',
+                    SeatReservations.expires_at > datetime.now(timezone.utc)
+                )
             )
         ).first()
         if existing_reservation:

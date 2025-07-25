@@ -1,22 +1,24 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, field_serializer
+from datetime import datetime, timedelta
 
 class SeatReservationsBase(BaseModel):
     seat_id: int
     showtime_id: int
-    user_id: Optional[int] = None 
+    user_id: Optional[int] = None
     session_id: Optional[str] = None
-    reserved_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: datetime
     status: str = "pending"
     transaction_id: Optional[int] = None
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.strftime("%H:%M %d-%m-%Y") if v else None
+        }
 
 class SeatReservationsCreate(SeatReservationsBase):
-    expires_at: datetime 
+    pass
 
 class SeatReservationsUpdate(SeatReservationsBase):
     seat_id: Optional[int] = None
@@ -29,3 +31,5 @@ class SeatReservationsUpdate(SeatReservationsBase):
 class SeatReservationsResponse(SeatReservationsBase):
     reservation_id: int
     reserved_at: datetime
+    expires_at: datetime
+    
