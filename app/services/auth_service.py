@@ -17,7 +17,6 @@ def register(db: Session, user_in : UserRegister):
         user = Users(
             full_name=user_in.full_name,
             email=user_in.email,
-            phone_number=user_in.phone_number,
             password_hash=hashed_password,
             status= UserStatusEnum.active,
             role = UserRoleEnum.customer,

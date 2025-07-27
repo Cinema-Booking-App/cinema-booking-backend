@@ -18,7 +18,6 @@ class Users(Base):
     user_id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(255), nullable=False, index=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
-    phone_number = Column(String(20), unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
     status = Column(Enum(UserStatusEnum), default=UserStatusEnum.active, server_default='active', nullable=False)
     role = Column(Enum(UserRoleEnum), nullable=False, default=UserRoleEnum.customer, server_default='customer')

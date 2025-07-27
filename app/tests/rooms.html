@@ -1,240 +1,229 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie Theater Room</title>
+    <title>Vé Xem Phim Của Bạn</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- qrcode.js CDN for QR code generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .ticket-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 2px dashed #e5e7eb; /* Đường đứt nét */
+        }
+        .ticket-header {
+            background-color: #1a202c; /* Màu nền đậm */
+            color: #ffffff;
+            padding: 24px;
+            text-align: center;
+            border-top-left-radius: 14px;
+            border-top-right-radius: 14px;
+        }
+        .ticket-body {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .ticket-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .ticket-section:last-child {
+            border-bottom: none;
+        }
+        .ticket-label {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+        .ticket-value {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 1rem;
+            text-align: right;
+        }
+        .ticket-qr-code {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            background-color: #f7fafc;
+            border-bottom-left-radius: 14px;
+            border-bottom-right-radius: 14px;
+        }
+        /* Style for the QR code canvas */
+        #qrcode {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            background-color: white; /* Ensure white background for QR code */
+            padding: 5px; /* Small padding around QR code */
+        }
+        .print-button-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .print-button {
+            background-color: #4CAF50; /* Màu xanh lá */
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .print-button:hover {
+            background-color: #45a049;
+        }
+
+        /* Ẩn nút in khi in */
+        @media print {
+            .print-button-container {
+                display: none;
+            }
+            body {
+                background-color: #ffffff;
+                margin: 0;
+                padding: 0;
+            }
+            .ticket-container {
+                box-shadow: none;
+                border: none;
+                max-width: none;
+                width: 100%;
+                border-radius: 0;
+            }
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Room Header -->
-        <div class="flex justify-between items-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Phòng chiếu #1</h1>
-            <div class="flex space-x-4">
-                <button class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
-                    <i class="fas fa-edit mr-2"></i>Cập nhật
-                </button>
-                <button class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">
-                    <i class="fas fa-trash mr-2"></i>Xóa
-                </button>
+<body>
+    <div class="ticket-wrapper">
+        <div class="ticket-container">
+            <div class="ticket-header">
+                <h1 class="text-2xl font-bold mb-2">Vé Xem Phim</h1>
+                <p class="text-sm">Cảm ơn bạn đã đặt vé!</p>
             </div>
-        </div>
-
-        <!-- Screen -->
-        <div class="mb-12 text-center">
-            <div class="mx-auto bg-gray-800 h-4 w-3/4 rounded-t-full mb-2"></div>
-            <p class="text-lg font-semibold">MÀN HÌNH</p>
-        </div>
-
-        <!-- Loading State -->
-        <div id="loading" class="text-center py-8">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-            <p class="mt-2 text-gray-600">Đang tải danh sách ghế...</p>
-        </div>
-
-        <!-- Seats Grid -->
-        <div id="seats-container" class="max-w-2xl mx-auto mb-12 hidden">
-            <!-- Seats will be dynamically inserted here -->
-        </div>
-
-        <!-- Error Message -->
-        <div id="error-message" class="max-w-2xl mx-auto mb-12 bg-red-100 border-l-4 border-red-500 text-red-700 p-4 hidden">
-            <p>Có lỗi xảy ra khi tải danh sách ghế. Vui lòng thử lại sau.</p>
-        </div>
-
-        <!-- Legend -->
-        <div class="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
-            <h3 class="text-xl font-semibold mb-4">Chú thích</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="flex items-center">
-                    <div class="w-6 h-6 bg-green-500 rounded mr-2"></div>
-                    <span>Ghế trống</span>
+            <div class="ticket-body">
+                <div class="ticket-section">
+                    <span class="ticket-label">Phim:</span>
+                    <span class="ticket-value" id="movie-title">Tên Phim Cực Hay</span>
                 </div>
-                <div class="flex items-center">
-                    <div class="w-6 h-6 bg-red-500 rounded mr-2"></div>
-                    <span>Ghế đã đặt</span>
+                <div class="ticket-section">
+                    <span class="ticket-label">Suất chiếu:</span>
+                    <span class="ticket-value" id="showtime-details">20:00 - 22:00, 26/07/2025</span>
                 </div>
-                <div class="flex items-center">
-                    <div class="w-6 h-6 bg-yellow-500 rounded mr-2"></div>
-                    <span>Ghế đang chọn</span>
+                <div class="ticket-section">
+                    <span class="ticket-label">Rạp:</span>
+                    <span class="ticket-value" id="theater-name">CGV Vincom Center</span>
                 </div>
-                <div class="flex items-center">
-                    <div class="w-6 h-6 bg-blue-500 rounded mr-2"></div>
-                    <span>Ghế VIP</span>
+                <div class="ticket-section">
+                    <span class="ticket-label">Phòng:</span>
+                    <span class="ticket-value" id="room-name">Phòng 5</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Ghế:</span>
+                    <span class="ticket-value" id="seat-details">A1, A2 (VIP)</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Giá vé:</span>
+                    <span class="ticket-value" id="ticket-price">150.000 VND</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Mã đặt vé:</span>
+                    <span class="ticket-value" id="booking-id">#BOOKING12345</span>
                 </div>
             </div>
+            <div class="ticket-qr-code">
+                <!-- Canvas element for QR Code -->
+                <div id="qrcode"></div>
+                <p class="text-gray-600 text-sm">Quét mã này để vào cửa</p>
+            </div>
         </div>
-
-        <!-- Action Buttons -->
-        <div class="mt-8 flex justify-center space-x-4">
-            <button id="confirm-btn" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium hidden">
-                <i class="fas fa-check-circle mr-2"></i>Xác nhận đặt ghế
-            </button>
-            <button class="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition font-medium">
-                <i class="fas fa-times-circle mr-2"></i>Hủy bỏ
+        <div class="print-button-container">
+            <button class="print-button" onclick="window.print()">
+                In Vé
             </button>
         </div>
     </div>
 
     <script>
-        // Selected seats array
-        let selectedSeats = [];
-        
-        // Function to fetch seats from API
-        async function fetchSeats() {
-            try {
-                const response = await fetch('http://127.0.0.1:8000/api/v1/rooms/1/seats');
-                
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                
-                const data = await response.json();
-                printf('Fetched seats:', data);
-                if (data.status === 'success') {
-                    renderSeats(data.data);
-                } else {
-                    showError();
-                }
-            } catch (error) {
-                console.error('Error fetching seats:', error);
-                showError();
+        // Function to generate QR code
+        function generateQRCode() {
+            // Get the booking ID from the element
+            const bookingId = document.getElementById('booking-id').innerText;
+            
+            // Check if the qrcode div exists
+            const qrcodeDiv = document.getElementById('qrcode');
+            if (qrcodeDiv) {
+                // Clear any existing QR code
+                qrcodeDiv.innerHTML = ''; 
+
+                // Create QR code instance
+                new QRCode(qrcodeDiv, {
+                    text: bookingId,
+                    width: 120,
+                    height: 120,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            } else {
+                console.error("QR code div not found!");
             }
         }
 
-        // Function to render seats
-        function renderSeats(seats) {
-            const container = document.getElementById('seats-container');
-            const loading = document.getElementById('loading');
-            const confirmBtn = document.getElementById('confirm-btn');
-            
-            // Hide loading, show container and confirm button
-            loading.classList.add('hidden');
-            container.classList.remove('hidden');
-            confirmBtn.classList.remove('hidden');
-            
-            // Clear previous content
-            container.innerHTML = '';
-            
-            // Find maximum row and column numbers to determine grid size
-            const maxRow = Math.max(...seats.map(seat => seat.row_number));
-            const maxCol = Math.max(...seats.map(seat => seat.column_number));
-            
-            // Create a grid with maxCol columns
-            container.className = `grid grid-cols-${maxCol} gap-4 max-w-2xl mx-auto mb-12`;
-            
-            // Group seats by row
-            const rows = {};
-            seats.forEach(seat => {
-                if (!rows[seat.row_number]) {
-                    rows[seat.row_number] = [];
-                }
-                rows[seat.row_number].push(seat);
-            });
-            
-            // Render each row
-            for (let rowNum = 1; rowNum <= maxRow; rowNum++) {
-                // Add row label
-                const rowLabel = document.createElement('div');
-                rowLabel.className = `col-span-${maxCol} flex justify-center items-center font-semibold`;
-                rowLabel.textContent = `Hàng ${String.fromCharCode(64 + rowNum)}`;
-                container.appendChild(rowLabel);
-                
-                // Add seats for this row (sorted by column number)
-                const rowSeats = rows[rowNum] ? rows[rowNum].sort((a, b) => a.column_number - b.column_number) : [];
-                
-                for (let colNum = 1; colNum <= maxCol; colNum++) {
-                    const seat = rowSeats.find(s => s.column_number === colNum);
-                    
-                    if (seat) {
-                        const seatElement = document.createElement('div');
-                        seatElement.className = `flex justify-center items-center`;
-                        
-                        const seatButton = document.createElement('button');
-                        seatButton.className = `w-10 h-10 rounded flex items-center justify-center text-white font-medium transition-all`;
-                        
-                        // Set seat color based on status and type
-                        if (!seat.is_available) {
-                            seatButton.className += ' bg-red-500 cursor-not-allowed';
-                        } else if (seat.seat_type === 'vip') {
-                            seatButton.className += ' bg-blue-500 hover:bg-blue-600';
-                        } else {
-                            seatButton.className += ' bg-green-500 hover:bg-green-600';
-                        }
-                        
-                        seatButton.textContent = seat.column_number;
-                        seatButton.title = `Ghế ${seat.seat_code}`;
-                        seatButton.dataset.seatId = seat.seat_id;
-                        
-                        seatButton.addEventListener('click', () => {
-                            if (seat.is_available) {
-                                const index = selectedSeats.indexOf(seat.seat_id);
-                                
-                                if (index === -1) {
-                                    // Select seat
-                                    selectedSeats.push(seat.seat_id);
-                                    seatButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
-                                    seatButton.classList.remove('bg-blue-500', 'bg-green-500');
-                                } else {
-                                    // Deselect seat
-                                    selectedSeats.splice(index, 1);
-                                    if (seat.seat_type === 'vip') {
-                                        seatButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                                    } else {
-                                        seatButton.classList.add('bg-green-500', 'hover:bg-green-600');
-                                    }
-                                    seatButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
-                                }
-                                
-                                // Update confirm button text
-                                updateConfirmButton();
-                            }
-                        });
-                        
-                        seatElement.appendChild(seatButton);
-                        container.appendChild(seatElement);
-                    } else {
-                        // Empty space for missing seat
-                        const emptySpace = document.createElement('div');
-                        container.appendChild(emptySpace);
-                    }
-                }
-            }
+        // Function to update ticket data dynamically
+        function updateTicketData(data) {
+            document.getElementById('movie-title').innerText = data.movieTitle;
+            document.getElementById('showtime-details').innerText = data.showtime;
+            document.getElementById('theater-name').innerText = data.theaterName;
+            document.getElementById('room-name').innerText = data.roomName;
+            document.getElementById('seat-details').innerText = data.seatDetails;
+            document.getElementById('ticket-price').innerText = data.ticketPrice;
+            document.getElementById('booking-id').innerText = data.bookingId;
+            generateQRCode(); // Regenerate QR code with new booking ID
         }
-        
-        // Function to update confirm button text
-        function updateConfirmButton() {
-            const confirmBtn = document.getElementById('confirm-btn');
-            if (selectedSeats.length > 0) {
-                confirmBtn.innerHTML = `<i class="fas fa-check-circle mr-2"></i>Xác nhận đặt ${selectedSeats.length} ghế`;
-            } else {
-                confirmBtn.innerHTML = `<i class="fas fa-check-circle mr-2"></i>Xác nhận đặt ghế`;
-            }
-        }
-        
-        // Function to show error message
-        function showError() {
-            const loading = document.getElementById('loading');
-            const errorMsg = document.getElementById('error-message');
-            
-            loading.classList.add('hidden');
-            errorMsg.classList.remove('hidden');
-        }
-        
-        // Initialize the page
-        document.addEventListener('DOMContentLoaded', fetchSeats);
-        
-        // Confirm button handler
-        document.getElementById('confirm-btn').addEventListener('click', () => {
-            if (selectedSeats.length > 0) {
-                alert(`Đã chọn ${selectedSeats.length} ghế: ${selectedSeats.join(', ')}`);
-                // Here you would typically send this data to your backend
-            } else {
-                alert('Vui lòng chọn ít nhất một ghế');
-            }
-        });
+
+        // Generate QR code and update data when the window loads
+        window.onload = function() {
+            const sampleData = {
+                movieTitle: "Phim Hành Động Mới Nhất",
+                showtime: "19:30 - 21:30, 27/07/2025",
+                theaterName: "Lotte Cinema Gò Vấp",
+                roomName: "Phòng 3",
+                seatDetails: "B5, B6 (Regular)",
+                ticketPrice: "200.000 VND",
+                bookingId: "#NEWBOOKING67890"
+            };
+            updateTicketData(sampleData);
+        };
     </script>
 </body>
 </html>
