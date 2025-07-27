@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS users (
     "user_id" SERIAL PRIMARY KEY,
     "full_name" VARCHAR(255) NOT NULL,
     "email" VARCHAR(255) UNIQUE NOT NULL,
-    "phone_number" VARCHAR(20) UNIQUE,
     "password_hash" VARCHAR(255) NOT NULL,
     "status" user_status DEFAULT 'active',
     "role" user_role NOT NULL DEFAULT 'customer',

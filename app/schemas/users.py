@@ -6,7 +6,6 @@ from app.models.users import UserStatusEnum, UserRoleEnum
 class UserBase(BaseModel):
     full_name: str
     email: EmailStr
-    phone_number: str
     status: UserStatusEnum = UserStatusEnum.active
     role: UserRoleEnum = UserRoleEnum.customer
 
@@ -15,14 +14,12 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    phone_number: Optional[str] = None
     status: Optional[UserStatusEnum] = None
     role: Optional[UserRoleEnum] = None
 
 class UserRegister(BaseModel):
     full_name: str
     email: EmailStr
-    phone_number: str
     password: str
 
 class UserLogin(BaseModel):
