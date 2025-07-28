@@ -17,15 +17,6 @@ class UserUpdate(BaseModel):
     status: Optional[UserStatusEnum] = None
     role: Optional[UserRoleEnum] = None
 
-class UserRegister(BaseModel):
-    full_name: str
-    email: EmailStr
-    password: str
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-    
 class UserResponse(UserBase):
     user_id: int
     created_at: datetime

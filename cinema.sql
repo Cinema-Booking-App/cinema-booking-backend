@@ -6,7 +6,7 @@ CREATE TYPE movie_status_type AS ENUM ('upcoming', 'now_showing', 'ended');
 CREATE TYPE seat_type AS ENUM ('regular', 'vip', 'couple');
 CREATE TYPE ticket_status AS ENUM ('pending', 'confirmed', 'cancelled');
 CREATE TYPE transaction_status AS ENUM ('pending', 'success', 'failed');
-CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended');
+CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');
 CREATE TYPE combo_status AS ENUM ('active', 'inactive');
 CREATE TYPE theater_type_status AS ENUM ('active', 'inactive');
 CREATE TYPE user_role AS ENUM ('admin', 'theater_manager', 'staff', 'customer');
@@ -215,6 +215,16 @@ CREATE TABLE IF NOT EXISTS reviews (
     "rating" INTEGER NOT NULL,
     "comment" TEXT,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng Email
+CREATE TABLE IF NOT EXISTS email_verifications (
+    "email_id" SERIAL PRIMARY KEY,
+    "email"  VARCHAR(255) NOT NULL,
+    "verification_code"  VARCHAR(255) NOT NULL,
+    "is_used" BOOLEAN DEFAULT FALSE,
+    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 -- Phần 3: Tạo Indexes (Chỉ mục)

@@ -2,11 +2,12 @@ import enum
 from sqlalchemy import Column, Integer, String,  DateTime, func, Enum
 from app.core.database import Base
 
-class UserStatusEnum(enum.Enum):
-    active = 'active'
-    inactive = 'inactive'
-    suspended = 'suspended'
 
+class UserStatusEnum(enum.Enum):
+    pending = "pending" 
+    active = "active"   
+    inactive = "inactive"
+    
 class UserRoleEnum(enum.Enum):
     admin = 'admin'
     theater_manager = 'theater_manager'
