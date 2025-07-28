@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+import uvicorn
 from app.core.middleware import setup_middleware
 from app.utils.response import error_response
 from app.api.v1 import auth, movies, reservations, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions
@@ -25,6 +26,10 @@ app.include_router(tickets.router,  prefix="/api/v1",tags=["Tickets"])
 @app.get("/")
 async def root():
     return RedirectResponse(url="/docs")
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
