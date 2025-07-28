@@ -93,36 +93,41 @@ class EmailService:
             html_template_with_tailwind_booking = f"""\
             <html>
             <head>
-                <style>
-                    /* Đảm bảo CSS Tailwind được đưa vào đây nếu bạn muốn Premailer xử lý */
-                    body {{ font-family: Arial, sans-serif; }}
-                </style>
             </head>
             <body class="font-sans text-gray-800 bg-gray-100 p-0 m-0">
-                <div class="max-w-xl mx-auto bg-white rounded-lg shadow-md overflow-hidden my-8">
-                    <div class="bg-green-600 text-white text-center py-4 px-6 rounded-t-lg">
-                        <h2 class="text-2xl font-bold">Xác nhận Đặt Vé Thành Công</h2>
-                    </div>
-                    <div class="p-6">
-                        <p class="mb-4">Chào bạn,</p>
-                        <p class="mb-4">Cảm ơn bạn đã đặt vé tại website của chúng tôi. Dưới đây là thông tin đặt vé của bạn:</p>
-                        <ul class="list-none p-0 mb-4">
-                            <li class="mb-2"><strong>Mã đặt vé:</strong> {booking_details.get('booking_id', 'N/A')}</li>
-                            <li class="mb-2"><strong>Họ và tên:</strong> {booking_details.get('customer_name', 'N/A')}</li>
-                            <li class="mb-2"><strong>Ngày khởi hành:</strong> {booking_details.get('departure_date', 'N/A')}</li>
-                            <li class="mb-2"><strong>Điểm đi:</strong> {booking_details.get('origin', 'N/A')}</li>
-                            <li class="mb-2"><strong>Điểm đến:</strong> {booking_details.get('destination', 'N/A')}</li>
-                            <li class="mb-2"><strong>Thời gian:</strong> {booking_details.get('time', 'N/A')}</li>
-                            <li class="mb-2"><strong>Số lượng vé:</strong> {booking_details.get('ticket_count', 'N/A')}</li>
-                        </ul>
-                        <p>Vui lòng kiểm tra kỹ thông tin và liên hệ với chúng tôi nếu có bất kỳ câu hỏi nào.</p>
-                        <p class="mt-8">Trân trọng,<br>Đội ngũ {self.sender_name}</p>
-                    </div>
-                    <div class="text-center text-xs text-gray-500 mt-8 py-3 px-6 border-t border-gray-200">
-                        <p>Đây là email tự động, vui lòng không trả lời.</p>
-                        <p>&copy; {datetime.now().year} {self.sender_name}. All rights reserved.</p>
-                    </div>
-                </div>
+            <div class="max-w-xl mx-auto bg-white rounded-lg shadow-md overflow-hidden my-8">
+            <div class="bg-red-600 text-white text-center py-6 px-6 rounded-t-lg">
+            <h2 class="text-3xl font-bold tracking-tight">XÁC NHẬN ĐẶT VÉ THÀNH CÔNG</h2>
+            </div>
+            <div class="p-8">
+            <p class="mb-6 text-lg">Xin chào,</p>
+            <p class="mb-6">Cảm ơn bạn đã tin tưởng và đặt vé xem phim tại hệ thống của chúng tôi. Dưới đây là thông tin chi tiết về vé của bạn:</p>
+            <div class="bg-gray-100 rounded-md p-6 mb-6 border border-gray-200">
+            <ul class="list-none p-0">
+            <li class="mb-3"><strong class="text-red-600">Mã đặt vé:</strong> <span class="font-semibold">{booking_details.get('booking_id', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Họ và tên:</strong> <span class="font-semibold">{booking_details.get('customer_name', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Ngày chiếu:</strong> <span class="font-semibold">{booking_details.get('departure_date', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Phim:</strong> <span class="font-semibold">{booking_details.get('origin', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Rạp:</strong> <span class="font-semibold">{booking_details.get('destination', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Giờ chiếu:</strong> <span class="font-semibold">{booking_details.get('time', 'N/A')}</span></li>
+            <li class="mb-3"><strong class="text-red-600">Số lượng vé:</strong> <span class="font-semibold">{booking_details.get('ticket_count', 'N/A')}</span></li>
+            </ul>
+            </div>
+            <div class="text-center my-8">
+            <p class="mb-4 text-lg">Vui lòng quét mã QR này để nhận vé tại quầy:</p>
+            <div class="inline-block bg-white p-4 border border-red-300 rounded-md shadow-md">
+            <img src="qr_code_image_url" alt="Mã QR nhận vé" class="w-48 h-48">
+            </div>
+            <p class="mt-4 text-sm text-gray-600">Hoặc cung cấp mã đặt vé trên cho nhân viên.</p>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">Xin vui lòng kiểm tra kỹ thông tin đặt vé. Nếu có bất kỳ sai sót hoặc thắc mắc, đừng ngần ngại liên hệ với chúng tôi.</p>
+            <p class="mt-8">Trân trọng,<br><strong class="text-red-600">{self.sender_name}</strong></p>
+            </div>
+            <div class="bg-gray-100 text-center text-xs text-gray-500 py-4 px-6 border-t border-gray-200 rounded-b-lg">
+            <p class="mb-2">Đây là email tự động, vui lòng không phản hồi trực tiếp.</p>
+            <p>&copy; {datetime.now().year} <strong class="text-red-600">{self.sender_name}</strong>. Mọi quyền được bảo lưu.</p>
+            </div>
+            </div>
             </body>
             </html>
             """
