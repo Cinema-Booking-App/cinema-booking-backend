@@ -16,11 +16,9 @@ CREATE TYPE format_type AS ENUM ('TWO_D', 'THREE_D', 'IMAX', '4DX');
 
 
 -- Phần 2: Tạo các Bảng
--- Sắp xếp thứ tự tạo bảng để các khóa ngoại có thể tham chiếu đến các bảng đã tồn tại
--- Sử dụng IF NOT EXISTS để tránh lỗi nếu bảng đã tồn tại
 
 -- Bảng Users
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     "user_id" SERIAL PRIMARY KEY,
     "full_name" VARCHAR(255) NOT NULL,
     "email" VARCHAR(255) UNIQUE NOT NULL,
@@ -32,7 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Bảng Theaters (Rạp chiếu phim)
-CREATE TABLE IF NOT EXISTS theaters (
+CREATE TABLE theaters (
     "theater_id" SERIAL PRIMARY KEY,
     "name" VARCHAR(255) UNIQUE NOT NULL,
     "address" TEXT NOT NULL,
@@ -42,7 +40,7 @@ CREATE TABLE IF NOT EXISTS theaters (
 );
 
 -- Bảng Movies (Phim)
-CREATE TABLE IF NOT EXISTS movies (
+CREATE TABLE movies (
     "movie_id" SERIAL PRIMARY KEY,
     "title" VARCHAR(255) NOT NULL,
     "genre" VARCHAR(100),
@@ -59,7 +57,7 @@ CREATE TABLE IF NOT EXISTS movies (
 );
 
 -- Bảng Promotions (Khuyến mãi)
-CREATE TABLE IF NOT EXISTS promotions (
+CREATE TABLE promotions (
     "promotion_id" SERIAL PRIMARY KEY,
     "code" VARCHAR(50) UNIQUE NOT NULL,
     "discount_percentage" NUMERIC(5, 2),
@@ -72,7 +70,7 @@ CREATE TABLE IF NOT EXISTS promotions (
 );
 
 -- Bảng Combos
-CREATE TABLE IF NOT EXISTS combos (
+CREATE TABLE combos (
     "combo_id" SERIAL PRIMARY KEY,
     "combo_name" VARCHAR(255) UNIQUE NOT NULL,
     "description" TEXT,
@@ -82,7 +80,7 @@ CREATE TABLE IF NOT EXISTS combos (
 );
 
 -- Bảng ComboItems (Chi tiết các thành phần trong Combo)
-CREATE TABLE IF NOT EXISTS combo_items (
+CREATE TABLE combo_items (
     "item_id" SERIAL PRIMARY KEY,
     "combo_id" INTEGER NOT NULL,
     "item_name" VARCHAR(100) NOT NULL,
@@ -90,7 +88,7 @@ CREATE TABLE IF NOT EXISTS combo_items (
 );
 
 -- Bảng SeatLayouts (Bố cục ghế)
-CREATE TABLE IF NOT EXISTS seat_layouts (
+CREATE TABLE seat_layouts (
     "layout_id" SERIAL PRIMARY KEY,
     "layout_name" VARCHAR(100) UNIQUE NOT NULL,
     "total_rows" INTEGER NOT NULL,
@@ -100,7 +98,7 @@ CREATE TABLE IF NOT EXISTS seat_layouts (
 );
 
 -- Bảng SeatTemplates (Mẫu ghế cho bố cục)
-CREATE TABLE IF NOT EXISTS seat_templates (
+CREATE TABLE seat_templates (
     "template_id" SERIAL PRIMARY KEY,
     "layout_id" INTEGER NOT NULL,
     "row_number" INTEGER NOT NULL,
@@ -114,7 +112,7 @@ CREATE TABLE IF NOT EXISTS seat_templates (
 );
 
 -- Bảng Rooms (Phòng chiếu)
-CREATE TABLE IF NOT EXISTS rooms (
+CREATE TABLE rooms (
     "room_id" SERIAL PRIMARY KEY,
     "theater_id" INTEGER NOT NULL,
     "room_name" VARCHAR(50) NOT NULL,
@@ -124,7 +122,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 );
 
 -- Bảng Seats (Ghế thực tế trong phòng)
-CREATE TABLE IF NOT EXISTS seats (
+CREATE TABLE seats (
     "seat_id" SERIAL PRIMARY KEY,
     "room_id" INTEGER NOT NULL,
     "row_number" INTEGER NOT NULL,
@@ -138,7 +136,7 @@ CREATE TABLE IF NOT EXISTS seats (
 );
 
 -- Bảng Showtimes (Suất chiếu)
-CREATE TABLE IF NOT EXISTS showtimes (
+CREATE TABLE showtimes (
     "showtime_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "room_id" INTEGER NOT NULL,
@@ -152,7 +150,7 @@ CREATE TABLE IF NOT EXISTS showtimes (
 );
 
 -- Bảng Transactions (Giao dịch)
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE transactions (
     "transaction_id" SERIAL PRIMARY KEY,
     "user_id" INTEGER, -- ID của khách hàng
     "staff_user_id" INTEGER, -- NEW: ID của nhân viên thực hiện giao dịch
@@ -165,7 +163,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 -- Bảng Tickets (Vé)
-CREATE TABLE IF NOT EXISTS tickets (
+CREATE TABLE tickets (
     "ticket_id" SERIAL PRIMARY KEY,
     "user_id" INTEGER, -- ID của khách hàng sở hữu vé
     "showtime_id" INTEGER NOT NULL,
@@ -179,14 +177,14 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 -- Bảng TransactionTickets (Liên kết Giao dịch và Vé)
-CREATE TABLE IF NOT EXISTS transaction_tickets (
+CREATE TABLE transaction_tickets (
     "transaction_id" INTEGER NOT NULL,
     "ticket_id" INTEGER NOT NULL,
     PRIMARY KEY ("transaction_id", "ticket_id")
 );
 
 -- Bảng TransactionCombos (Liên kết Giao dịch và Combo)
-CREATE TABLE IF NOT EXISTS transaction_combos (
+CREATE TABLE transaction_combos (
     "transaction_id" INTEGER NOT NULL,
     "combo_id" INTEGER,
     "quantity" INTEGER NOT NULL,
@@ -194,7 +192,7 @@ CREATE TABLE IF NOT EXISTS transaction_combos (
 );
 
 -- Bảng SeatReservations (Giữ ghế tạm thời)
-CREATE TABLE IF NOT EXISTS seat_reservations (
+CREATE TABLE seat_reservations (
     "reservation_id" SERIAL PRIMARY KEY,
     "seat_id" INTEGER NOT NULL,
     "showtime_id" INTEGER NOT NULL,
@@ -208,7 +206,7 @@ CREATE TABLE IF NOT EXISTS seat_reservations (
 );
 
 -- Bảng Reviews
-CREATE TABLE IF NOT EXISTS reviews (
+CREATE TABLE reviews (
     "review_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "user_id" INTEGER,
@@ -218,7 +216,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 -- Bảng Email
-CREATE TABLE IF NOT EXISTS email_verifications (
+CREATE TABLE email_verifications (
     "email_id" SERIAL PRIMARY KEY,
     "email"  VARCHAR(255) NOT NULL,
     "verification_code"  VARCHAR(255) NOT NULL,
@@ -229,21 +227,21 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 
 -- Phần 3: Tạo Indexes (Chỉ mục)
 -- Các chỉ mục giúp tăng tốc độ truy vấn
-CREATE INDEX IF NOT EXISTS idx_movies_title ON movies (title);
-CREATE INDEX IF NOT EXISTS idx_movies_status ON movies (status);
-CREATE INDEX IF NOT EXISTS idx_theaters_city ON theaters (city);
-CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
-CREATE INDEX IF NOT EXISTS idx_reviews_movie_id ON reviews (movie_id);
-CREATE INDEX IF NOT EXISTS idx_showtimes_show_datetime ON showtimes (show_datetime);
-CREATE INDEX IF NOT EXISTS idx_showtimes_movie_id ON showtimes (movie_id);
-CREATE INDEX IF NOT EXISTS idx_showtimes_room_id ON showtimes (room_id);
-CREATE INDEX IF NOT EXISTS ix_seat_reservations_expires_at ON seat_reservations (expires_at);
-CREATE INDEX IF NOT EXISTS ix_seat_reservations_status ON seat_reservations (status);
-CREATE INDEX IF NOT EXISTS ix_seat_reservations_showtime_id ON seat_reservations (showtime_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_showtime_id ON tickets (showtime_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_seat_id ON tickets (seat_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions (user_id);
-CREATE INDEX IF NOT EXISTS idx_transactions_staff_user_id ON transactions (staff_user_id);
+CREATE INDEX idx_movies_title ON movies (title);
+CREATE INDEX idx_movies_status ON movies (status);
+CREATE INDEX idx_theaters_city ON theaters (city);
+CREATE INDEX idx_users_role ON users (role);
+CREATE INDEX idx_reviews_movie_id ON reviews (movie_id);
+CREATE INDEX idx_showtimes_show_datetime ON showtimes (show_datetime);
+CREATE INDEX idx_showtimes_movie_id ON showtimes (movie_id);
+CREATE INDEX idx_showtimes_room_id ON showtimes (room_id);
+CREATE INDEX ix_seat_reservations_expires_at ON seat_reservations (expires_at);
+CREATE INDEX ix_seat_reservations_status ON seat_reservations (status);
+CREATE INDEX ix_seat_reservations_showtime_id ON seat_reservations (showtime_id);
+CREATE INDEX idx_tickets_showtime_id ON tickets (showtime_id);
+CREATE INDEX idx_tickets_seat_id ON tickets (seat_id);
+CREATE INDEX idx_transactions_user_id ON transactions (user_id);
+CREATE INDEX idx_transactions_staff_user_id ON transactions (staff_user_id);
 
 -- Phần 4: Thêm các Ràng buộc Khóa ngoại (Foreign Keys)
 -- Đảm bảo các bảng đã được tạo trước khi thêm FK
