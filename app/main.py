@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import uvicorn
 from app.core.middleware import setup_middleware
 from app.utils.response import error_response
-from app.api.v1 import auth, movies, reservations, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions
+from app.api.v1 import auth, movies, reservations, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos
 
 # from app.core.database import Base, engine
 
@@ -22,6 +22,7 @@ app.include_router(promotions.router, prefix="/api/v1", tags=["Promotions"])
 app.include_router(showtimes.router,  prefix="/api/v1",tags=["Showtimes"])
 app.include_router(reservations.router,  prefix="/api/v1",tags=["Reservations"])
 app.include_router(tickets.router,  prefix="/api/v1",tags=["Tickets"])
+app.include_router(combos.router, prefix="/api/v1", tags=["Combos"])
 
 @app.get("/")
 async def root():
