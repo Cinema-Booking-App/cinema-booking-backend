@@ -20,8 +20,7 @@ def login_route(user_in: UserLogin, db: Session = Depends(get_db)):
 # Xác nhận email với mã OTP
 @router.post("/verify-email")
 def verify_user_email(request: EmailVerificationRequest, db: Session = Depends(get_db)):
-    """Xác nhận email với mã OTP"""
-    return verify_email(db, request)
+    return success_response(verify_email(db, request))
 
 # Gửi lại mã xác nhận
 @router.post("/resend-verification")

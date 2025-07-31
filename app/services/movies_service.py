@@ -1,15 +1,32 @@
 from fastapi import HTTPException
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from app.models.movies import Movies
+from app.schemas.common import PaginatedResponse
 from app.schemas.movies import MovieCreate, MovieUpdate, MovieResponse
 
-# Lấy danh sách phim
-def get_all_movies(db: Session):
-    # Truy vấn tất cả các phim trong database
-    movies = db.query(Movies).all()
-    # Chuyển đổi sang schema MovieResponse
-    return [MovieResponse.from_orm(m) for m in movies]
 
+# Lấy danh sách phim
+def get_all_movies(db: Session, skip: int = 0, limit: int = 10) -> PaginatedResponse[MovieResponse]:
+    total = db.query(Movies).count()
+
+    # Truy vấn phim với phân trang
+    movies = (
+        db.query(Movies)
+        .order_by(desc(Movies.movie_id))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    movies_response = [MovieResponse.from_orm(m) for m in movies]
+
+    return PaginatedResponse(
+        total=total,
+        skip=skip,
+        limit=limit,
+        items=movies_response 
+    )
+    
 # Lấy phim theo id
 def get_movie_by_id(db: Session, movie_id: int):
     # Truy vấn phim theo movie_id

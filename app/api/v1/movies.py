@@ -10,8 +10,8 @@ router = APIRouter()
 
 # Lấy danh sách tất cả các phim
 @router.get("/movies")
-def list_movies(db: Session = Depends(get_db)):
-    return success_response(get_all_movies(db))
+def list_movies(db: Session = Depends(get_db),skip: int = 0, limit: int = 10,):
+    return success_response(get_all_movies(db, skip=skip, limit=limit))
 
 # Lấy chi tiết một phim theo ID
 @router.get("/movies/{movie_id}")
