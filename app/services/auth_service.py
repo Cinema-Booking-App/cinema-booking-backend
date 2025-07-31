@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import HTTPException,status
+from fastapi import Depends, HTTPException,status
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from app.core.config import settings
+from app.core.database import get_db
 from app.core.security import create_access_token
 from app.models.email_verifications import EmailVerification
 from app.models.users import Users, UserStatusEnum ,UserRoleEnum
@@ -9,6 +11,7 @@ from app.schemas.auth import EmailVerificationRequest, UserLogin, UserRegister
 from app.schemas.users import  UserResponse
 from app.services.email_service import EmailService
 from app.services.users_service import pwd_context
+from fastapi.security import OAuth2PasswordBearer
 
 email_service = EmailService(
     smtp_server="smtp.gmail.com", 
@@ -107,6 +110,56 @@ def login(db: Session, user_in: UserLogin):
         "token_type": "bearer",
         "user": UserResponse.from_orm(user)
     }
+
+# Làm mới token
+def verify_refresh_token(token: str, db: Session) -> dict:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if email is None or token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Mã làm mới không hợp lệ",
+            )
+        
+        user = db.query(Users).filter(Users.email == email).first()
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Không tìm thấy người dùng ",
+            )
+        
+        return {"sub": email, "role": str(user.role)}
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Không thể xác thực mã làm mới",
+        )
+
+# Khai báo OAuth2 scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+# Lấy thông tin người dùng đang đăng nhập
+def get_current_user(db:Session = Depends(get_db) ,token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token,settings.SECRET_KEY,algorithms=[settings.ALGORITHM])
+        email:str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if email is None or token_type != "access":
+            raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Không thể xác thực thông tin đăng nhập"
+        ) 
+        user = db.query(Users).filter(Users.email==email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy người dùng")
+        return UserResponse.from_orm(user)
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Không thể xác thực thông tin đăng nhập"
+        ) 
 
 # Xác nhận email với mã OTP
 def verify_email(db: Session, request: EmailVerificationRequest):
