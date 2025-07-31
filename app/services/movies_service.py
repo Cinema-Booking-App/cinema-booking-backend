@@ -1,19 +1,13 @@
-from typing import List
 from fastapi import HTTPException
-from pydantic import BaseModel
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from app.models.movies import Movies
+from app.schemas.common import PaginatedResponse
 from app.schemas.movies import MovieCreate, MovieUpdate, MovieResponse
 
-class PaginatedMovies(BaseModel):
-    total: int
-    skip: int
-    limit: int
-    movies: List[MovieResponse]
-    
+
 # Lấy danh sách phim
-def get_all_movies(db: Session,skip: int = 0, limit: int = 10):
+def get_all_movies(db: Session, skip: int = 0, limit: int = 10) -> PaginatedResponse[MovieResponse]:
     total = db.query(Movies).count()
 
     # Truy vấn phim với phân trang
@@ -24,21 +18,15 @@ def get_all_movies(db: Session,skip: int = 0, limit: int = 10):
         .limit(limit)
         .all()
     )
-
-    # Nếu không có bản ghi, trả về danh sách rỗng
-    if not movies:
-        return PaginatedMovies(total=total, skip=skip, limit=limit, movies=[])
-
-    # Chuyển đổi sang schema MovieResponse
     movies_response = [MovieResponse.from_orm(m) for m in movies]
 
-    return PaginatedMovies(
+    return PaginatedResponse(
         total=total,
         skip=skip,
         limit=limit,
-        movies=movies_response
+        items=movies_response 
     )
-
+    
 # Lấy phim theo id
 def get_movie_by_id(db: Session, movie_id: int):
     # Truy vấn phim theo movie_id
