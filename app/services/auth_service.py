@@ -95,7 +95,7 @@ def register(db: Session, user_in : UserRegister):
 def login(db: Session, user_in: UserLogin):
     user = db.query(Users).filter(Users.email == user_in.email).first()
     if not user or not pwd_context.verify(user_in.password, getattr(user, "password_hash", None)):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email hoặc mật khẩu không trùng khớp")
     if user.status != UserStatusEnum.active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not verify")
 
@@ -136,9 +136,16 @@ def verify_email(db: Session, request: EmailVerificationRequest):
         
         db.commit()
         db.refresh(user)
-        
-        return UserResponse.from_orm(user)
-        
+        access_token = create_access_token({"sub": user.email, "role": str(user.role)})
+        refresh_token = create_access_token({"sub": user.email})
+
+        return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "user": UserResponse.from_orm(user)
+        }
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
