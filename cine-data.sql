@@ -1,8 +1,8 @@
-INSERT INTO users (full_name, password_hash, email) VALUES
-('super_admin_user', '$2b$12$hashed_password', 'super_admin@example.com'),
-('cinema_manager_user', '$2b$12$hashed_password', 'cinema_manager@example.com'),
-('counter_staff_user', '$2b$12$hashed_password', 'counter_staff@example.com');
-('customer', '$2b$12$hashed_password', 'customer@example.com');
+INSERT INTO roles (role_name, description) VALUES
+('super_admin', 'Người quản trị hệ thống cao nhất'),
+('cinema_manager', 'Người quản lý rạp chiếu phim'),
+('counter_staff', 'Nhân viên bán vé tại quầy'),
+('user', 'Người dùng thông thường, khách hàng'); -- Đây là vai trò mặc định
 
 INSERT INTO roles (role_name, description) VALUES
 ('general_manager', 'Admin tổng'),

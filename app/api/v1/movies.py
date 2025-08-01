@@ -1,6 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.security import get_current_active_user
+from app.models.users import Users
 from app.services.movies_service import *
 from app.schemas.movies import MovieCreate, MovieUpdate
 from fastapi import APIRouter
@@ -18,6 +20,7 @@ def list_movies(
     limit: int = 10,
     search_query: Optional[str] = None,
     status: Optional[str] = None,
+    _ = Depends(get_current_active_user)
 ):
     return success_response(
         get_all_movies(

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import create_access_token
+from app.core.token_utils import create_token
 from app.schemas.auth import EmailVerificationRequest, UserLogin, UserRegister
 from app.schemas.users import UserResponse
 from app.services.auth_service import get_current_user, login, register, resend_verification_code, verify_email, verify_refresh_token
@@ -39,7 +39,7 @@ def refresh_access_token(token: str, db: Session = Depends(get_db)):
     # Xác minh refresh token
     token_data = verify_refresh_token(token, db)
     # Tạo access token mới
-    access_token = create_access_token({"sub": token_data["sub"], "role": token_data["role"]})
+    access_token = create_token({"sub": token_data["sub"]})
     return {
         "access_token": access_token,
         "token_type": "bearer"
