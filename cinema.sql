@@ -9,7 +9,6 @@ CREATE TYPE transaction_status AS ENUM ('pending', 'success', 'failed');
 CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');
 CREATE TYPE combo_status AS ENUM ('active', 'inactive');
 CREATE TYPE theater_type_status AS ENUM ('active', 'inactive');
-CREATE TYPE user_role AS ENUM ('admin', 'theater_manager', 'staff', 'customer');
 CREATE TYPE showtimes_status AS ENUM ('active', 'inactive', 'sold_out');
 CREATE TYPE language_type AS ENUM ('sub_vi', 'sub_en', 'dub_en', 'dub_vi', 'original');
 CREATE TYPE format_type AS ENUM ('TWO_D', 'THREE_D', 'IMAX', '4DX');
@@ -17,6 +16,25 @@ CREATE TYPE format_type AS ENUM ('TWO_D', 'THREE_D', 'IMAX', '4DX');
 
 -- Phần 2: Tạo các Bảng
 
+-- Bảng Roles
+CREATE TABLE roles (
+    "role_id" SERIAL PRIMARY KEY,
+    "role_name" VARCHAR(255) NOT NULL,
+    "description" VARCHAR(255) UNIQUE NOT NULL
+);
+CREATE TABLE permissions (
+    permission_id SERIAL PRIMARY KEY,
+    permission_name VARCHAR(255) UNIQUE NOT NULL, -- Tên quyền (ví dụ: view_movies, create_showtimes)
+    description TEXT NOT NULL, -- Mô tả quyền
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE role_permissions (
+    role_id INTEGER NOT NULL,
+    permission_id INTEGER NOT NULL,
+    PRIMARY KEY (role_id, permission_id),
+    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
+    FOREIGN KEY (permission_id) REFERENCES permissions(permission_id) ON DELETE CASCADE
+);
 -- Bảng Users
 CREATE TABLE users (
     "user_id" SERIAL PRIMARY KEY,
@@ -24,10 +42,20 @@ CREATE TABLE users (
     "email" VARCHAR(255) UNIQUE NOT NULL,
     "password_hash" VARCHAR(255) NOT NULL,
     "status" user_status DEFAULT 'active',
-    "role" user_role NOT NULL DEFAULT 'customer',
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE user_roles (
+    user_role_id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    role_id INTEGER NOT NULL,
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(role_id) ON DELETE CASCADE,
+    UNIQUE (user_id, role_id)
+);
+
 
 -- Bảng Theaters (Rạp chiếu phim)
 CREATE TABLE theaters (
@@ -230,7 +258,6 @@ CREATE TABLE email_verifications (
 CREATE INDEX idx_movies_title ON movies (title);
 CREATE INDEX idx_movies_status ON movies (status);
 CREATE INDEX idx_theaters_city ON theaters (city);
-CREATE INDEX idx_users_role ON users (role);
 CREATE INDEX idx_reviews_movie_id ON reviews (movie_id);
 CREATE INDEX idx_showtimes_show_datetime ON showtimes (show_datetime);
 CREATE INDEX idx_showtimes_movie_id ON showtimes (movie_id);
@@ -242,6 +269,9 @@ CREATE INDEX idx_tickets_showtime_id ON tickets (showtime_id);
 CREATE INDEX idx_tickets_seat_id ON tickets (seat_id);
 CREATE INDEX idx_transactions_user_id ON transactions (user_id);
 CREATE INDEX idx_transactions_staff_user_id ON transactions (staff_user_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_roles_role_name ON roles(role_name);
+CREATE INDEX idx_permissions_permission_name ON permissions(permission_name);
 
 -- Phần 4: Thêm các Ràng buộc Khóa ngoại (Foreign Keys)
 -- Đảm bảo các bảng đã được tạo trước khi thêm FK
@@ -285,24 +315,3 @@ ALTER TABLE showtimes ADD CONSTRAINT chk_showtimes_ticket_price CHECK (ticket_pr
 ALTER TABLE tickets ADD CONSTRAINT chk_tickets_price CHECK (price >= 0);
 ALTER TABLE transactions ADD CONSTRAINT chk_transactions_total_amount CHECK (total_amount >= 0);
 ALTER TABLE transaction_combos ADD CONSTRAINT chk_transaction_combos_quantity CHECK (quantity > 0);
-
--- Phần 6: Thêm các COMMENT (Ghi chú)
-COMMENT ON COLUMN combos.price IS 'CHECK (price >= 0)';
-COMMENT ON COLUMN combo_items.combo_id IS 'References combos.combo_id';
-COMMENT ON COLUMN combo_items.quantity IS 'CHECK (quantity > 0)';
-COMMENT ON COLUMN promotions.discount_percentage IS 'CHECK (discount_percentage >= 0 AND discount_percentage <= 100)';
-COMMENT ON COLUMN promotions.end_date IS 'CHECK (start_date < end_date)';
-COMMENT ON COLUMN promotions.max_usage IS 'CHECK (max_usage >= 0)';
-COMMENT ON COLUMN reviews.rating IS 'CHECK (rating >= 1 AND rating <= 10)';
-COMMENT ON COLUMN seat_layouts.total_rows IS 'CHECK (total_rows > 0)';
-COMMENT ON COLUMN seat_layouts.total_columns IS 'CHECK (total_columns > 0)';
-COMMENT ON COLUMN seat_layouts.aisle_positions IS 'JSON array of aisle positions: [{"row": 5, "col": 3}]';
-COMMENT ON COLUMN seats.row_number IS 'CHECK (row_number > 0)';
-COMMENT ON COLUMN seats.column_number IS 'CHECK (column_number > 0)';
-COMMENT ON COLUMN showtimes.ticket_price IS 'CHECK (ticket_price >= 0)';
-COMMENT ON COLUMN tickets.price IS 'CHECK (price >= 0)';
-COMMENT ON COLUMN transactions.total_amount IS 'CHECK (total_amount >= 0)';
-COMMENT ON COLUMN transaction_combos.quantity IS 'CHECK (quantity > 0)';
-COMMENT ON COLUMN transactions.staff_user_id IS 'ID of the staff member who performed the transaction (if applicable)';
-COMMENT ON COLUMN transactions.payment_ref_code IS 'Reference code from the payment gateway';
-COMMENT ON COLUMN seat_reservations.session_id IS 'Session ID of the user (especially for non-logged-in users)';

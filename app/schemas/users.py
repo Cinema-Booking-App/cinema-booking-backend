@@ -1,13 +1,12 @@
 from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
-from app.models.users import UserStatusEnum, UserRoleEnum
+from app.models.users import UserStatusEnum
 
 class UserBase(BaseModel):
     full_name: str
     email: EmailStr
     status: UserStatusEnum = UserStatusEnum.active
-    role: UserRoleEnum = UserRoleEnum.customer
 
 class UserCreate(UserBase):
     password: str
@@ -15,7 +14,6 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     status: Optional[UserStatusEnum] = None
-    role: Optional[UserRoleEnum] = None
 
 class UserResponse(UserBase):
     user_id: int
