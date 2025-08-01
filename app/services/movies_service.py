@@ -23,6 +23,8 @@ def get_all_movies(
     if search_query:
         # tìm kiếm không phân biệt chữ hoa/thường trên cột 'title'.
         query = query.filter(Movies.title.ilike(f"%{search_query}%"))
+        # phải thêm trong Postges : CREATE EXTENSION unaccent;
+        # query = query.filter(func.unaccent(Movies.title).ilike(f"%{func.unaccent(search_query)}%"))
 
     # Nếu có trạng thái "all" thì không lọc :
     if status and status != "all":
