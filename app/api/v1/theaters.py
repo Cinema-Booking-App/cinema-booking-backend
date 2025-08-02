@@ -39,3 +39,6 @@ def remove_theater(theater_id: int, db: Session = Depends(get_db)):
 def edit_theater(theater_id: int, theater_in: TheaterUpdate, db: Session = Depends(get_db)):
     return success_response(update_theater(db, theater_id, theater_in))
 
+@router.get("/theaters/{theater_id}/rooms")
+def read_rooms_by_theater(theater_id: int,db: Session = Depends(get_db)):
+    return success_response(get_rooms_by_theater_id(db, theater_id))
