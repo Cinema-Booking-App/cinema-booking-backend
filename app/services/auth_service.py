@@ -179,8 +179,6 @@ def login(db: Session, user_in: UserLogin):
     access_token = create_access_token(payload)
     refresh_token = create_refresh_token({"sub": user.email})
 
-    # Gán vai trò vào đối tượng user để trả về
-    user.roles = user_roles_db
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
