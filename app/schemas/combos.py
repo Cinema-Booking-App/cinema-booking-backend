@@ -1,46 +1,64 @@
-# app/schemas/combos.py
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from enum import Enum
+from datetime import datetime
 
-# Enum trạng thái
+# Enum trạng thái combo
 class ComboStatusEnum(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    DELETED = "deleted"
+    active = "active"
+    inactive = "inactive"
+    deleted = "deleted"
 
-# Schema của từng item bên trong combo
+# ======== Dish Schemas ========= #
+
+class DishBase(BaseModel):
+    dish_name: str
+    description: Optional[str] = None
+
+class DishCreate(DishBase):
+    pass
+
+class DishResponse(DishBase):
+    dish_id: int
+
+    class Config:
+        from_attributes = True
+
+# ======== Combo Item Schemas ========= #
+
 class ComboItemBase(BaseModel):
-    item_name: str
-    quantity: int
+    dish_id: int
+    quantity: int = Field(..., gt=0)  # Đảm bảo quantity > 0
 
 class ComboItemCreate(ComboItemBase):
     pass
 
 class ComboItemResponse(ComboItemBase):
     item_id: int
+    dish_name: Optional[str] = None
+    description: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-# Base cho combo
+# ======== Combo Schemas ========= #
+
 class ComboBase(BaseModel):
     combo_name: str
     description: Optional[str] = None
-    price: float
-    status: Optional[ComboStatusEnum] = ComboStatusEnum.ACTIVE
+    price: float = Field(..., gt=0)  # Đảm bảo price > 0
+    image_url: Optional[str] = None
+    status: Optional[ComboStatusEnum] = ComboStatusEnum.active
 
-# Tạo combo kèm nhiều item
 class ComboCreate(ComboBase):
     items: List[ComboItemCreate]
 
-# Cập nhật combo (items có thể không thay đổi)
 class ComboUpdate(ComboBase):
     items: Optional[List[ComboItemCreate]] = None
 
-# Trả về combo cùng danh sách item
 class ComboResponse(ComboBase):
     combo_id: int
+    created_at: datetime
     items: List[ComboItemResponse]
 
     class Config:
