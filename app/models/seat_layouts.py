@@ -6,6 +6,7 @@ class SeatLayouts(Base):
     __tablename__ = "seat_layouts"
     layout_id = Column(Integer, primary_key=True, index=True)
     layout_name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text) 
     total_rows = Column(Integer, nullable=False)
     total_columns = Column(Integer, nullable=False)
     aisle_positions = Column(Text) 

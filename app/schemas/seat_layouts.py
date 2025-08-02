@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class SeatLayoutBase(BaseModel):
     layout_name: str
+    description: Optional[str] = None
     total_rows: int
     total_columns: int
     aisle_positions: Optional[str] = None
