@@ -42,6 +42,11 @@ class SeatTemplateCreate(BaseModel):
     is_edge: Optional[bool] = False
     is_active: Optional[bool] = True
 
+class SeatTemplateUpdate(BaseModel):
+    template_id: int
+    seat_type: str
+
 # Schema tạo layout kèm danh sách seat_templates
 class SeatLayoutWithTemplatesCreate(SeatLayoutBase):
     seat_templates: List[SeatTemplateCreate] = []
+
