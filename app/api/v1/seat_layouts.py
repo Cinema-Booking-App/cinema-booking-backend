@@ -29,4 +29,6 @@ def add_seat_layout(layout_in: SeatLayoutWithTemplatesCreate, db: Session = Depe
 def remove_seat_layout(layout_id: int, db: Session = Depends(get_db)):
     return success_response(delete_seat_layout(db, layout_id))
     
-            
+@router.put("/seat_layout/{layout_id}/seats")
+def update_seats_in_layout(layout_id: int, updates: List[SeatTemplateUpdate], db: Session = Depends(get_db)):
+    return success_response(update_seats_in_layout(db, layout_id, updates))
