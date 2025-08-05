@@ -32,7 +32,7 @@ def create_showtime(db: Session, showtime_in : ShowtimesCreate):
         # Kiểm tra xem xuất chiếu đã tồn tại chưa
         existing_showtime = db.query(Showtimes).filter(
             Showtimes.room_id == showtime_in.room_id,
-            Showtimes.start_time == showtime_in.start_time
+            Showtimes.show_datetime == showtime_in.show_datetime
         ).first()
         if existing_showtime:
             raise HTTPException(status_code=400, detail="Showtime already exists for this room at the specified time")
