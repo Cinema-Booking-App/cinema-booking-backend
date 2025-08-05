@@ -203,6 +203,7 @@ CREATE TABLE showtimes (
     "showtime_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "room_id" INTEGER NOT NULL,
+    "theater_id" INTEGER NOT NULL,
     "show_datetime" TIMESTAMP
     WITH
         TIME ZONE NOT NULL,
