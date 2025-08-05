@@ -1,7 +1,12 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from app.utils.response import error_response
+<<<<<<< HEAD
 from app.api.v1 import auth, movies, rooms, seat_layouts, seat_types, theaters, users, promotions, showtimes
+=======
+from app.api.v1 import auth, movies, rooms, theaters, users, promotions
+
+>>>>>>> e06283a8d15f65a28d59c517e70b5ceb178f84f9
 # from app.core.database import Base, engine
 
 
@@ -13,11 +18,14 @@ app.include_router(movies.router, prefix="/api/v1", tags=["Movies"])
 app.include_router(users.router,  prefix="/api/v1",tags=["Users"])
 app.include_router(auth.router,  prefix="/api/v1",tags=["Auth"])
 app.include_router(theaters.router,  prefix="/api/v1",tags=["Theaters"])
-app.include_router(seat_types.router,  prefix="/api/v1",tags=["Seat Types"])
 app.include_router(seat_layouts.router,  prefix="/api/v1",tags=["Seat Layouts"])
 app.include_router(rooms.router,  prefix="/api/v1",tags=["Rooms"])
 app.include_router(promotions.router, prefix="/api/v1", tags=["Promotions"])
+<<<<<<< HEAD
 app.include_router(showtimes.router, prefix="/api/v1", tags=["Showtimes"])
+=======
+app.include_router(showtimes.router,  prefix="/api/v1",tags=["Showtimes"])
+>>>>>>> e06283a8d15f65a28d59c517e70b5ceb178f84f9
 
 @app.get("/")
 async def root():

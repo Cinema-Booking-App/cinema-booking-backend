@@ -20,7 +20,7 @@ class SeatTemplateResponse(BaseModel):
     row_number: int
     column_number: int
     seat_code: str
-    seat_type_id: int
+    seat_type : str
     is_edge: Optional[bool] = False
     is_active: Optional[bool] = True
 
@@ -31,13 +31,13 @@ class SeatLayoutWithTemplatesResponse(SeatLayoutResponse):
     seat_templates: List[SeatTemplateResponse]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class SeatTemplateCreate(BaseModel):
     row_number: int
     column_number: int
     seat_code: str
-    seat_type_id: int
+    seat_type: str
     is_edge: Optional[bool] = False
     is_active: Optional[bool] = True
 

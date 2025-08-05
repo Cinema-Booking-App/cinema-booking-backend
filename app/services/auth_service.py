@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.core.security import create_access_token
-from app.models.user import Users, UserStatusEnum ,UserRoleEnum
+from app.models.users import Users, UserStatusEnum ,UserRoleEnum
 from app.schemas.users import UserLogin, UserRegister, UserResponse
 from app.services.users_service import pwd_context
 
