@@ -11,20 +11,20 @@ router = APIRouter()
 
 @router.get("/promotions", response_model=list[PromotionResponse])
 def list_promotions(db: Session = Depends(get_db)):
-    return get_all_promotions(db)
+    return success_response(get_all_promotions(db))
 
 @router.get("/promotions/{promotion_id}", response_model=PromotionResponse)
 def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
-    return get_promotion_by_id(db, promotion_id)
+    return success_response(get_promotion_by_id(db, promotion_id))
 
 @router.post("/promotions", response_model=PromotionResponse, status_code=201)
 def create_new_promotion(promotion_in: PromotionCreate, db: Session = Depends(get_db)):
-    return create_promotion(db, promotion_in)
+    return success_response(create_promotion(db, promotion_in))
 
 @router.put("/promotions/{promotion_id}", response_model=PromotionResponse)
 def update_existing_promotion(promotion_id: int, promotion_in: PromotionUpdate, db: Session = Depends(get_db)):
-    return update_promotion(db, promotion_id, promotion_in)
+    return success_response(update_promotion(db, promotion_id, promotion_in))
 
 @router.delete("/promotions/{promotion_id}")
 def delete_existing_promotion(promotion_id: int, db: Session = Depends(get_db)):
-    return delete_promotion(db, promotion_id) 
+    return success_response(delete_promotion(db, promotion_id)) 
