@@ -17,7 +17,6 @@ from app.services.users_service import pwd_context
 from fastapi.security import HTTPBearer, OAuth2PasswordBearer
 
 # --- Khởi tạo dịch vụ email và OAuth2 scheme ---
-# Khởi tạo EmailService với các thông tin cấu hình từ settings
 email_service = EmailService(
     smtp_server="smtp.gmail.com",
     smtp_port=587,
@@ -26,7 +25,6 @@ email_service = EmailService(
 )
 
 
-# Khai báo OAuth2 scheme cho việc lấy token từ header
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 security_scheme = HTTPBearer()
 
