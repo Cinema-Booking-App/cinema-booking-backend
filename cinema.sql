@@ -128,7 +128,7 @@ CREATE TABLE combos (
     "description" TEXT,
     "price" NUMERIC(10, 2) NOT NULL,
     "image_url" VARCHAR(255),
-    "status" combo_status DEFAULT 'active',
+    "status" combo_status DEFAULT 'active'
 );
 
 -- Bảng ComboItems (Chi tiết các thành phần trong Combo)
