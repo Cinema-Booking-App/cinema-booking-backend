@@ -40,7 +40,7 @@ def detail_movie(movie_id: int, db: Session = Depends(get_db)):
 def add_movie(movie_in: MovieCreate, db: Session = Depends(get_db)):
     return success_response(create_movie(db, movie_in))
 
-
+    
 # Xóa một phim theo ID
 @router.delete("/movies/{movie_id}")
 def remove_movie(movie_id: int, db: Session = Depends(get_db)):
