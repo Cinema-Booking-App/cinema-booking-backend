@@ -127,18 +127,23 @@ CREATE TABLE combos (
     "combo_name" VARCHAR(255) UNIQUE NOT NULL,
     "description" TEXT,
     "price" NUMERIC(10, 2) NOT NULL,
+    "image_url" VARCHAR(255),
     "status" combo_status DEFAULT 'active',
-    "created_at" TIMESTAMP
-    WITH
-        TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Bảng ComboItems (Chi tiết các thành phần trong Combo)
 CREATE TABLE combo_items (
     "item_id" SERIAL PRIMARY KEY,
     "combo_id" INTEGER NOT NULL,
-    "item_name" VARCHAR(100) NOT NULL,
+    "dish_id" INTEGER NOT NULL,
     "quantity" INTEGER NOT NULL
+);
+
+-- Bảng ComboDishes (Chi tiết các thành phần trong Combo)
+CREATE TABLE combo_dishes (
+    "dish_id" SERIAL PRIMARY KEY,
+    "dish_name" VARCHAR NOT NULL,
+    "description" TEXT
 );
 
 -- Bảng SeatLayouts (Bố cục ghế)
@@ -349,8 +354,13 @@ CREATE INDEX idx_permissions_permission_name ON permissions (permission_name);
 
 -- Phần 4: Thêm các Ràng buộc Khóa ngoại (Foreign Keys)
 -- Đảm bảo các bảng đã được tạo trước khi thêm FK
+-- Thêm khóa ngoại cho combo_id
 ALTER TABLE combo_items
 ADD CONSTRAINT fk_combo_items_combo_id FOREIGN KEY (combo_id) REFERENCES combos (combo_id) ON DELETE CASCADE;
+
+-- Thêm khóa ngoại cho dish_id (liên kết với combo_dishes)
+ALTER TABLE combo_items
+ADD CONSTRAINT fk_combo_items_dish_id FOREIGN KEY (dish_id) REFERENCES combo_dishes (dish_id) ON DELETE CASCADE;
 
 ALTER TABLE reviews
 ADD CONSTRAINT fk_reviews_movie_id FOREIGN KEY (movie_id) REFERENCES movies (movie_id) ON DELETE CASCADE;
