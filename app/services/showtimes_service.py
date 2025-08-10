@@ -1,9 +1,15 @@
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from app.models.theaters import Theaters
 from app.models.showtimes import Showtimes
 from fastapi import HTTPException
 from  app.models.rooms import Rooms
 from app.schemas.showtimes import ShowtimesCreate, ShowtimesResponse
+
+
+def get_all_showtimes(db:Session):
+    showtimes = db.query(Showtimes).order_by(desc(Showtimes.showtime_id)).all()
+    return [ShowtimesResponse.from_orm(showtime) for showtime in showtimes]
 
 # Danh sách xuất chiếu trong rạp
 def get_showtimes_by_theater(db: Session,theater_id: int):
@@ -31,8 +37,9 @@ def create_showtime(db: Session, showtime_in : ShowtimesCreate):
             raise HTTPException(status_code=404, detail="Room not found")
         # Kiểm tra xem xuất chiếu đã tồn tại chưa
         existing_showtime = db.query(Showtimes).filter(
+            Theaters.theater_id == showtime_in.theater_id,
             Showtimes.room_id == showtime_in.room_id,
-            Showtimes.start_time == showtime_in.start_time
+            Showtimes.show_datetime == showtime_in.show_datetime
         ).first()
         if existing_showtime:
             raise HTTPException(status_code=400, detail="Showtime already exists for this room at the specified time")
