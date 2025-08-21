@@ -20,7 +20,7 @@ def list_movies(
     limit: int = 10,
     search_query: Optional[str] = None,
     status: Optional[str] = None,
-    _ = Depends(get_current_active_user)
+    # _ = Depends(get_current_active_user)
 ):
     return success_response(
         get_all_movies(
