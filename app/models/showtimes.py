@@ -29,10 +29,7 @@ class Showtimes(Base):
     __tablename__ = "showtimes"
     showtime_id = Column(Integer, primary_key=True, index=True)
     movie_id = Column(Integer, ForeignKey("movies.movie_id"), nullable=False)
-    # Thêm theater_id
     theater_id = Column(Integer, ForeignKey("theaters.theater_id"), nullable=False)
-    # Thêm mối quan hệ
-    theater = relationship("Theaters")
     room_id = Column(Integer, ForeignKey("rooms.room_id"), nullable=False)
     show_datetime = Column(DateTime, nullable=False)
     format = Column(Enum(FormatTypeEnum, name="format_type"),nullable=False,default=FormatTypeEnum.TWO_D,server_default="TWO_D")
@@ -41,3 +38,8 @@ class Showtimes(Base):
     language = Column(Enum(LanguageEnum),nullable=False,default=LanguageEnum.original,server_default="original")
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+        # Định nghĩa các mối quan hệ
+    movie = relationship("Movies")
+    theater = relationship("Theaters")
+    room = relationship("Rooms")
