@@ -27,6 +27,9 @@ class ShowtimesUpdate(BaseModel):
 
 class ShowtimesResponse(ShowtimesBase):
     showtime_id: int
+    movie_name: str
+    theater_name: str
+    room_name: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
