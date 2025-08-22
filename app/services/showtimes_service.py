@@ -1,5 +1,5 @@
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.theaters import Theaters
 from app.models.showtimes import Showtimes
 from app.models.movies import Movies
@@ -9,32 +9,18 @@ from app.schemas.showtimes import ShowtimesCreate, ShowtimesResponse
 
 
 def get_all_showtimes(db: Session):
-    # showtimes = db.query(Showtimes).order_by(desc(Showtimes.showtime_id)).all()
-    query = (
-        db.query(
-            Showtimes.showtime_id,
-            Showtimes.movie_id,
-            Movies.title.label("movie_name"),
-            Theaters.name.label("theater_name"),
-            Rooms.room_name.label("room_name"),
-            Showtimes.theater_id,
-            Showtimes.room_id,
-            Showtimes.show_datetime,
-            Showtimes.format,
-            Showtimes.ticket_price,
-            Showtimes.status,
-            Showtimes.language,
+    # Sử dụng joinedload để tải trước dữ liệu từ các bảng liên quan
+    showtimes = (
+        db.query(Showtimes)
+        .options(
+            joinedload(Showtimes.movie),
+            joinedload(Showtimes.theater),
+            joinedload(Showtimes.room),
         )
-        .join(Movies, Showtimes.movie_id == Movies.movie_id)
-        .join(Theaters, Showtimes.theater_id == Theaters.theater_id)
-        .join(Rooms, Showtimes.room_id == Rooms.room_id)
         .order_by(desc(Showtimes.showtime_id))
         .all()
     )
-    # return [ShowtimesResponse.from_orm(showtime) for showtime in query]
-    return [ShowtimesResponse(**dict(row._mapping)) for row in query]
-
-
+    return showtimes
 
 # Danh sách xuất chiếu trong rạp
 def get_showtimes_by_theater(db: Session, theater_id: int):

@@ -7,26 +7,23 @@ INSERT INTO roles (role_name, description) VALUES
 ('user', 'Người dùng thông thường, khách hàng');
 
 -- INSERT permissions
-INSERT INTO permissions (permission_name, description) VALUES
-('access:admin', 'Truy cập trang admin'),
-('manage:dashboard', 'Xem dashboard'),
-('manage:cinemas', 'Quản lý rạp'),
-('manage:rooms', 'Quản lý phòng chiếu'),
-('manage:seats', 'Quản lý ghế'),
-('manage:schedules', 'Quản lý lịch chiếu'),
-('manage:movies', 'Quản lý phim'),
-('manage:bookings', 'Quản lý vé'),
-('manage:combos', 'Quản lý combo'),
-('manage:customers', 'Quản lý khách hàng'),
-('manage:staff', 'Quản lý nhân viên'),
-('manage:promotions', 'Quản lý khuyến mãi'),
-('manage:reports', 'Quản lý báo cáo'),
-('manage:content', 'Quản lý nội dung'),
-('manage:maintenance', 'Bảo trì hệ thống'),
-('manage:permissions', 'Quản lý phân quyền'),
-('manage:support', 'Hỗ trợ khách hàng'),
-('manage:settings', 'Cài đặt hệ thống'),
-('manage:members', 'Quản lý thành viên');
+-- Insert sample permissions
+INSERT INTO permissions (permission_name, description, module, actions) VALUES
+-- Movies module
+('movie_view', 'Xem phim', 'movies', ARRAY['read']),
+('movie_manage', 'Quản lý phim', 'movies', ARRAY['create', 'update', 'delete']),
+-- Schedules module
+('schedule_view', 'Xem lịch chiếu', 'schedules', ARRAY['read']),
+('schedule_manage', 'Quản lý lịch chiếu', 'schedules', ARRAY['create', 'update', 'delete']),
+-- Users modul
+('user_view', 'Xem người dùng', 'users', ARRAY['read']),
+('user_manage', 'Quản lý người dùng', 'users', ARRAY['create', 'update', 'delete']),
+-- Reports module
+('report_view', 'Xem báo cáo', 'reports', ARRAY['read']),
+('report_manage', 'Quản lý báo cáo', 'reports', ARRAY['create', 'update', 'delete']),
+-- System module
+('system_config', 'Cấu hình hệ thống', 'system', ARRAY['create', 'update', 'delete']),
+('permission_manage', 'Quản lý phân quyền', 'system', ARRAY['create', 'read', 'update', 'delete']);
 
 -- Tạo users trước khi gán roles
 INSERT INTO users (full_name, email, password_hash,  status) VALUES

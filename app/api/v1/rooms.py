@@ -1,5 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, Depends
+from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.rooms import RoomCreate
@@ -37,7 +38,10 @@ async def detail_room_by_id(room_id: int, db: Session = Depends(get_db)):
 # Tạo phòng cho rạp
 @router.post("/theaters/{theater_id}/rooms")
 def add_room_to_theater(
-    theater_id: int, room_in: RoomCreate, db: Session = Depends(get_db)
+    theater_id: int,
+    room_in: RoomCreate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
 ):
     room = create_room_to_theater(db, theater_id, room_in)
     return success_response(room)
@@ -45,13 +49,18 @@ def add_room_to_theater(
 
 # Xóa phòng theo ID
 @router.delete("/rooms/{room_id}")
-def delete_room(room_id: int, db: Session = Depends(get_db)):
+def delete_room(room_id: int, db: Session = Depends(get_db), _ = Depends(get_current_active_user)):
     return success_response(delete_room(db, room_id))
 
 
 # Cập nhật thông tin phòng
 @router.put("/rooms/{room_id}")
-def update_room(room_id: int, room_in: RoomCreate, db: Session = Depends(get_db)):
+def update_room(
+    room_id: int,
+    room_in: RoomCreate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     updated_room = update_room(db, room_id, room_in)
     return success_response(updated_room)
 

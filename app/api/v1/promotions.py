@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.promotions import PromotionCreate, PromotionUpdate, PromotionResponse
@@ -18,13 +19,26 @@ def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
     return get_promotion_by_id(db, promotion_id)
 
 @router.post("/promotions", response_model=PromotionResponse, status_code=201)
-def create_new_promotion(promotion_in: PromotionCreate, db: Session = Depends(get_db)):
+def create_new_promotion(
+    promotion_in: PromotionCreate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return create_promotion(db, promotion_in)
 
 @router.put("/promotions/{promotion_id}", response_model=PromotionResponse)
-def update_existing_promotion(promotion_id: int, promotion_in: PromotionUpdate, db: Session = Depends(get_db)):
+def update_existing_promotion(
+    promotion_id: int,
+    promotion_in: PromotionUpdate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return update_promotion(db, promotion_id, promotion_in)
 
 @router.delete("/promotions/{promotion_id}")
-def delete_existing_promotion(promotion_id: int, db: Session = Depends(get_db)):
+def delete_existing_promotion(
+    promotion_id: int,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return delete_promotion(db, promotion_id) 

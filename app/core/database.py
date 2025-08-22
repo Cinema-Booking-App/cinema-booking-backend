@@ -5,7 +5,10 @@ from app.core.config import settings
 
 
 # Tạo engine kết nối tới database
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+)
 # Tạo class SessionLocal để tạo các phiên làm việc với database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Tạo class Base để các model ORM kế thừa

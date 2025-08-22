@@ -18,7 +18,7 @@ def refresh_token(data: dict) -> str:
     """Tạo refresh token mới."""
     to_encode = data.copy()
     # Thời gian hết hạn của refresh token có thể dài hơn
-    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
     refreshed_token = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM

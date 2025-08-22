@@ -1,4 +1,3 @@
-from hmac import new
 from fastapi import HTTPException
 from app.models.seat_layouts import SeatLayouts
 from app.models.seat_templates import SeatTemplates
