@@ -6,10 +6,10 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.token_utils import create_token
 from app.models.email_verifications import EmailVerification
+from app.models.role import Role, UserRole
 from app.models.users import Users, UserStatusEnum
 
 # Thêm import cho model Role và UserRole
-from app.models.roles import Roles, UserRole
 from app.schemas.auth import EmailVerificationRequest, UserLogin, UserRegister
 from app.schemas.users import UserResponse
 from app.services.email_service import EmailService
@@ -113,7 +113,7 @@ def register(db: Session, user_in: UserRegister):
 
         # Thêm logic gán role mặc định cho người dùng mới
         # Tìm role 'user' trong database. Nếu không tồn tại thì raise lỗi
-        default_role = db.query(Roles).filter(Roles.role_name == "user").first()
+        default_role = db.query(Role).filter(Role.role_name == "user").first()
         if not default_role:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -164,7 +164,7 @@ def login(db: Session, user_in: UserLogin):
         )
     # Lấy vai trò của người dùng và thêm vào payload token
     user_roles_db = (
-        db.query(Roles.role_name)
+        db.query(Role.role_name)
         .join(UserRole)
         .filter(UserRole.user_id == user.user_id)
         .all()
