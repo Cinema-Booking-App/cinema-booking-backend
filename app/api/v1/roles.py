@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,5 +17,5 @@ def get_list_role(db: Session = Depends(get_db)):
 
 
 @router.post("/roles")
-def add_role(data: RoleCreate, db: Session = Depends(get_db)):
+def add_role(data: RoleCreate, db: Session = Depends(get_db), _ = Depends(get_current_active_user)):
     return success_response(create_role(data, db=db))

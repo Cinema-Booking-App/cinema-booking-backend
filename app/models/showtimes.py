@@ -28,7 +28,7 @@ class StatusShowtimeEnum(enum.Enum):
 class Showtimes(Base):
     __tablename__ = "showtimes"
     showtime_id = Column(Integer, primary_key=True, index=True)
-    movie_id = Column(Integer, nullable=False)
+    movie_id = Column(Integer, ForeignKey("movies.movie_id"), nullable=False)
     # Thêm theater_id
     theater_id = Column(Integer, ForeignKey("theaters.theater_id"), nullable=False)
     # Thêm mối quan hệ

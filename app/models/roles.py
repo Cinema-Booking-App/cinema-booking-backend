@@ -1,6 +1,6 @@
 from sqlalchemy.orm import relationship
 from app.core.database import Base
-from sqlalchemy import Column, ForeignKey, Integer, String,Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String,Text, func
 
 
 class Roles(Base):
@@ -8,7 +8,8 @@ class Roles(Base):
     role_id = Column(Integer, primary_key=True)
     role_name = Column(String(50), unique=True, nullable=False)
     description = Column(Text, nullable=True)
-
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, onupdate=func.now())
     # Mối quan hệ: Một vai trò có nhiều quyền
     role_permissions = relationship("RolePermission", backref="role", lazy=True)
     # Mối quan hệ: Một vai trò có thể được gán cho nhiều người dùng

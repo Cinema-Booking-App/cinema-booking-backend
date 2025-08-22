@@ -8,7 +8,6 @@ from app.schemas.roles import RoleCreate, RoleResponse
 # Danh sách quyền 
 def get_all_roles(db:Session):
     roles = db.query(Roles).all()
-    print(roles)
     return [RoleResponse.from_orm(role) for role in roles]
 
 def create_role(data: RoleCreate, db: Session):

@@ -27,18 +27,22 @@ CREATE TYPE format_type AS ENUM ('TWO_D', 'THREE_D', 'IMAX', '4DX');
 
 -- Bảng Roles
 CREATE TABLE roles (
-    "role_id" SERIAL PRIMARY KEY,
-    "role_name" VARCHAR(255) NOT NULL,
-    "description" VARCHAR(255) UNIQUE NOT NULL
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(255) NOT NULL,
+    description VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE permissions (
     permission_id SERIAL PRIMARY KEY,
     permission_name VARCHAR(255) UNIQUE NOT NULL, -- Tên quyền (ví dụ: view_movies, create_showtimes)
     description TEXT NOT NULL, -- Mô tả quyền
-    created_at TIMESTAMP
-    WITH
-        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    module VARCHAR(100) NOT NULL, -- Nhóm quyền theo module (movies, schedules, users, reports, system)
+    actions TEXT[] NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+
 );
 
 CREATE TABLE role_permissions (

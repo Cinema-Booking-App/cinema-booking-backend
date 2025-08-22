@@ -15,7 +15,8 @@ class Users(Base):
     full_name = Column(String(255), nullable=False, index=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
-    status = Column(Enum(UserStatusEnum), default=UserStatusEnum.active, server_default='active', nullable=False)
+    # Mặc định pending để phù hợp luồng xác minh email
+    status = Column(Enum(UserStatusEnum), default=UserStatusEnum.pending, server_default='pending', nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
