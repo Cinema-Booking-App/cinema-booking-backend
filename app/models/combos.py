@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Numeric, ForeignKey, Enum, DateTime, func
 from sqlalchemy.orm import relationship
-import enum
 from app.core.database import Base
-
+import enum
 # Enum trạng thái combo
 class ComboStatusEnum(str, enum.Enum):
     active = "active"
