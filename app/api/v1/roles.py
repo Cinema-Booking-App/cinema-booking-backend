@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.roles import RoleCreate
-from app.services.roles_service import create_role, get_all_permissions, get_list_roles
+from app.services.roles_service import  create_role_with_permissions, delete_role, get_all_permissions, get_list_roles
 from app.utils.response import success_response
 
 router = APIRouter()
@@ -17,8 +17,20 @@ def get_list_role(db: Session = Depends(get_db)):
 
 
 @router.post("/roles")
-def add_role(data: RoleCreate, db: Session = Depends(get_db), _ = Depends(get_current_active_user)):
-    return success_response(create_role(data, db=db))
+def add_role(
+    data: RoleCreate,
+    db: Session = Depends(get_db),
+    # _ = Depends(get_current_active_user)
+):
+    return success_response(create_role_with_permissions(data, db=db))
+
+@router.delete("/roles/{role_id}")
+def remove_role(
+    role_id: int,
+    db: Session = Depends(get_db),
+    # _ = Depends(get_current_active_user)
+):
+    return success_response(delete_role(role_id, db=db))
 
 
 # Permission

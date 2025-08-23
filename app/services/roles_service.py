@@ -40,17 +40,44 @@ def get_list_roles(db: Session):
         })
     return results
 
-def create_role(data: RoleCreate, db: Session):
+def create_role_with_permissions( data: RoleCreate, db: Session):
     try:
-        role = Role(**data.dict())
-        db.add(role)
+        # Bước 1: Tạo đối tượng Role
+        db_role = Role(
+            role_name=data.role_name,
+            description=data.description
+        )
+
+        # Bước 2: Tìm các đối tượng Permission từ các ID
+        permissions_to_add = db.query(Permissions).filter(
+            Permissions.permission_id.in_(data.permission_ids)
+        ).all()
+        
+        # Bước 3: Gán trực tiếp danh sách các đối tượng Permission
+        db_role.permissions = permissions_to_add
+
+        db.add(db_role)
         db.commit()
-        db.refresh(role)
-        return RoleResponse.from_orm(role)
+        db.refresh(db_role)
+
+        return RoleResponse.from_orm(db_role)
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create role: {str(e)}")
+
+def delete_role( role_id: int,db: Session):
+    try:
+        role = db.query(Role).filter(Role.role_id == role_id).first()
+        if not role:
+            raise HTTPException(status_code=404, detail="Role not found")
+        db.delete(role)
+        db.commit()
+        return True
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"{str(e)}")
-
+        
 
 # Danh sách quyền
 def get_all_permissions(db: Session):
