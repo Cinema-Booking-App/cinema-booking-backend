@@ -9,7 +9,7 @@ class RoleBase(BaseModel):
 
 
 class RoleCreate(RoleBase):
-    pass
+    permission_ids: List[int]
 
 
 class RoleUpdate(BaseModel):
@@ -17,9 +17,8 @@ class RoleUpdate(BaseModel):
     description: Optional[str] = None
 
 
-
-
 """Permission Schemas"""
+
 
 class PermissionBase(BaseModel):
     permission_name: str
@@ -44,15 +43,15 @@ class PermissionResponse(PermissionBase):
     created_at: datetime
     updated_at: datetime
 
-
     class Config:
         from_attributes = True
+
 
 class RoleResponse(RoleBase):
     role_id: int
     created_at: datetime
     updated_at: datetime
     permissions: Optional[List[PermissionResponse]] = None
+
     class Config:
         from_attributes = True
-
