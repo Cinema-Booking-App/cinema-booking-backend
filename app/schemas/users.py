@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
-from app.models.role import Role
 from app.models.users import UserStatusEnum
+from app.schemas.roles import RoleResponse
 
 class UserBase(BaseModel):
     full_name: str
@@ -18,6 +18,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     user_id: int
+    roles: List[RoleResponse] = []
     created_at: datetime
     updated_at: datetime
 
