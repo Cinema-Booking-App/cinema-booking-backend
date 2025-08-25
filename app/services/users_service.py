@@ -33,75 +33,75 @@ def get_user_by_id(db: Session, user_id: int):
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng: {str(e)}")
 
 # Lấy người dùng theo email
-# def get_user_by_email(db: Session, email: str):
-#     try:
-#         user = db.query(Users).filter(Users.email == email).first()
-#         if user:
-#             return UserResponse.from_orm(user)
-#         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng theo email: {str(e)}")
+def get_user_by_email(db: Session, email: str):
+    try:
+        user = db.query(Users).filter(Users.email == email).first()
+        if user:
+            return UserResponse.from_orm(user)
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng theo email: {str(e)}")
 
-# # Tạo người dùng mới
-# def create_user(db: Session, user_in: UserCreate):
-#     try:
-#         # Kiểm tra email đã tồn tại chưa
-#         if get_user_by_email(db, user_in.email):
-#             raise HTTPException(status_code=400, detail="Email đã được đăng ký")
+# Tạo người dùng mới
+def create_user(db: Session, user_in: UserCreate):
+    try:
+        # Kiểm tra email đã tồn tại chưa
+        if get_user_by_email(db, user_in.email):
+            raise HTTPException(status_code=400, detail="Email đã được đăng ký")
         
-#         hashed_password = pwd_context.hash(user_in.password)
-#         user = Users(
-#             full_name=user_in.full_name,
-#             email=user_in.email,
-#             password_hash=hashed_password,
-#             phone=user_in.phone,
-#             avatar_url=user_in.avatar_url,
-#             date_of_birth=user_in.date_of_birth,
-#             gender=user_in.gender,
-#             status=user_in.status,
-#             is_verified=user_in.is_verified
-#         )
-#         # Gán rank mặc định khi tạo người dùng
-#         default_rank = db.query(Ranks).filter(Ranks.is_default == True).first()
-#         if default_rank:
-#             user.rank_id = default_rank.rank_id
-#         db.add(user)
-#         db.commit()
-#         db.refresh(user)
-#         return UserResponse.from_orm(user)
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {str(e)}")
+        hashed_password = pwd_context.hash(user_in.password)
+        user = Users(
+            full_name=user_in.full_name,
+            email=user_in.email,
+            password_hash=hashed_password,
+            phone=user_in.phone,
+            avatar_url=user_in.avatar_url,
+            date_of_birth=user_in.date_of_birth,
+            gender=user_in.gender,
+            status=user_in.status,
+            is_verified=user_in.is_verified
+        )
+        # Gán rank mặc định khi tạo người dùng
+        default_rank = db.query(Ranks).filter(Ranks.is_default == True).first()
+        if default_rank:
+            user.rank_id = default_rank.rank_id
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return UserResponse.from_orm(user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {str(e)}")
 
 # Xóa người dùng theo id
-# def delete_user(db: Session, user_id: int):
-#     try:
-#         user = db.query(Users).filter(Users.user_id == user_id).first()
-#         if not user:
-#             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-#         db.delete(user)
-#         db.commit()
-#         return {"message": "Xóa người dùng thành công"}
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Lỗi khi xóa người dùng: {str(e)}")
+def delete_user(db: Session, user_id: int):
+    try:
+        user = db.query(Users).filter(Users.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+        db.delete(user)
+        db.commit()
+        return {"message": "Xóa người dùng thành công"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi xóa người dùng: {str(e)}")
 
 # Sửa người dùng theo id
-# def update_user(db: Session, user_id: int, user_in: UserUpdate):
-#     try:
-#         user = db.query(Users).filter(Users.user_id == user_id).first()
-#         if not user:
-#             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-#         # Cập nhật thông tin người dùng
-#         updated_user = user_in.dict(exclude_unset=True)
-#         for key, value in updated_user.items():
-#             setattr(user, key, value)
-#         db.commit()
-#         db.refresh(user)
-#         return UserResponse.from_orm(user)
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật người dùng: {str(e)}")
+def update_user(db: Session, user_id: int, user_in: UserUpdate):
+    try:
+        user = db.query(Users).filter(Users.user_id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+        # Cập nhật thông tin người dùng
+        updated_user = user_in.dict(exclude_unset=True)
+        for key, value in updated_user.items():
+            setattr(user, key, value)
+        db.commit()
+        db.refresh(user)
+        return UserResponse.from_orm(user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật người dùng: {str(e)}")
 
 # Đặt lại mật khẩu (admin reset password)
 # def reset_user_password(db: Session, user_id: int, new_password: str):
