@@ -21,6 +21,7 @@ class Transactions(Base):
     payment_ref_code = Column(String(255), nullable=True) 
     
     transaction_tickets = relationship("TransactionTickets", back_populates="transaction")
+    user = relationship("Users", back_populates="transactions")
 
 class TransactionTickets(Base):
     __tablename__ = "transaction_tickets"

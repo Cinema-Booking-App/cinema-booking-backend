@@ -14,3 +14,5 @@ class Ranks(Base):
     is_default = Column(Boolean, default=True)  # Cấp mặc định hay không
     created_at = Column(DateTime, server_default=func.now())  # Ngày tạo
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())  # Ngày cập nhật
+
+    users = relationship("Users", back_populates="rank")
