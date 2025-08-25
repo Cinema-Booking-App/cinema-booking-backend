@@ -13,6 +13,8 @@ CREATE TYPE transaction_status AS ENUM ('pending', 'success', 'failed');
 
 CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');
 
+CREATE TYPE gender_enum AS ENUM ('male', 'female', 'other');
+
 CREATE TYPE combo_status AS ENUM ('active', 'inactive');
 
 CREATE TYPE theater_type_status AS ENUM ('active', 'inactive');
@@ -56,9 +58,18 @@ CREATE TABLE role_permissions (
 CREATE TABLE users (
     "user_id" SERIAL PRIMARY KEY,
     "full_name" VARCHAR(255) NOT NULL,
-    "email" VARCHAR(255) UNIQUE NOT NULL,
+    "email" VARCHAR(255) NOT NULL UNIQUE,
     "password_hash" VARCHAR(255) NOT NULL,
+    "phone" VARCHAR(20) UNIQUE,
+    "avatar_url" VARCHAR(500),
+    "date_of_birth" DATE,
+    "gender" gender_enum,
     "status" user_status DEFAULT 'active',
+    "is_verified" BOOLEAN NOT NULL DEFAULT FALSE,
+    "last_login" TIMESTAMP,
+    "loyalty_points" INTEGER NOT NULL DEFAULT 0,
+    "rank_id" INTEGER REFERENCES ranks(rank_id),
+    "total_spent" NUMERIC(15,2) DEFAULT 0,
     "created_at" TIMESTAMP
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +77,7 @@ CREATE TABLE users (
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE user_roles (
     user_role_id SERIAL PRIMARY KEY,
@@ -374,6 +386,10 @@ CREATE INDEX idx_transactions_staff_user_id ON transactions (staff_user_id);
 
 CREATE INDEX idx_users_email ON users (email);
 
+CREATE INDEX idx_users_full_name ON users (full_name);
+
+CREATE INDEX idx_users_phone ON users (phone);
+
 CREATE INDEX idx_roles_role_name ON roles (role_name);
 
 CREATE INDEX idx_permissions_permission_name ON permissions (permission_name);
@@ -520,3 +536,43 @@ ADD CONSTRAINT chk_transactions_total_amount CHECK (total_amount >= 0);
 
 ALTER TABLE transaction_combos
 ADD CONSTRAINT chk_transaction_combos_quantity CHECK (quantity > 0);
+
+ALTER TABLE users
+ADD CONSTRAINT chk_users_loyalty_points CHECK (loyalty_points >= 0);
+
+ALTER TABLE users
+ADD CONSTRAINT chk_users_total_spent CHECK (total_spent >= 0);
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho full_name (độ dài tối thiểu)
+ALTER TABLE users
+ADD CONSTRAINT chk_users_full_name CHECK (LENGTH(full_name) >= 2);
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho định dạng email
+ALTER TABLE users
+ADD CONSTRAINT chk_users_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho phone (chỉ cho phép số, dấu +, dấu -)
+ALTER TABLE users
+ADD CONSTRAINT chk_users_phone CHECK (phone ~* '^[0-9+\-]{7,20}$');
+
+-- Phần 6: Tạo Triggers và Functions
+
+-- Function để cập nhật total_spent trong bảng users
+CREATE OR REPLACE FUNCTION update_user_total_spent()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE users
+    SET total_spent = (
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE user_id = NEW.user_id AND status = 'completed'
+    )
+    WHERE user_id = NEW.user_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger để gọi function sau khi có thay đổi trong transactions
+CREATE TRIGGER trigger_update_total_spent
+AFTER INSERT OR UPDATE OR DELETE ON transactions
+FOR EACH ROW EXECUTE FUNCTION update_user_total_spent();
