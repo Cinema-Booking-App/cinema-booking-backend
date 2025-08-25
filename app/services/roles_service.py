@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.permissions import Permissions
 from app.models.role import Role, UserRole
-from app.schemas.roles import PermissionResponse, RoleCreate, RoleResponse
+from app.schemas.roles import PermissionCreate, PermissionResponse, RoleCreate, RoleResponse
 
 
 # Danh sách vai trò
@@ -83,3 +83,21 @@ def delete_role( role_id: int,db: Session):
 def get_all_permissions(db: Session):
     permissions = db.query(Permissions).all()
     return [PermissionResponse.from_orm(permission) for permission in permissions]
+
+# Tạo quyền mới
+# Thêm phim mới
+def create_permissions(db: Session, data: PermissionCreate):
+    try:
+        # Tạo đối tượng Movie từ dữ liệu đầu vào
+        db_movie = Permissions(**data.dict(exclude_unset=True))
+        # Thêm vào session
+        db.add(db_movie)
+        # Lưu thay đổi vào database
+        db.commit()
+        # Làm mới đối tượng để lấy dữ liệu mới nhất từ DB
+        db.refresh(db_movie)
+        return db_movie
+    except Exception as e:
+        # Nếu có lỗi, rollback transaction
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"{str(e)}")
