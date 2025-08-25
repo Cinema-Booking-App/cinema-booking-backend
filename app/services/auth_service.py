@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.token_utils import create_token
@@ -63,12 +63,19 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(Users).filter(Users.email == email).first()
+    user = (
+        db.query(Users)
+        .options(joinedload(Users.roles))  # Thêm joinedload để nạp trước thông tin vai trò
+        .filter(Users.email == email)
+        .first()
+    )
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không tồn tại"
         )
-    return UserResponse.from_orm(user)
+
+    return user
+    # return UserResponse.from_orm(user)
 
 
 # --- Hàm logic cho các chức năng ---
