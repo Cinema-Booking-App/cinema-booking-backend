@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Numeric, Date, Text, DateTime, func
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Promotions(Base):
@@ -12,3 +13,5 @@ class Promotions(Base):
     used_count = Column(Integer, default=0)
     description = Column(Text)
     created_at = Column(DateTime, server_default=func.now()) 
+    
+    tickets = relationship("Tickets")

@@ -37,7 +37,7 @@ class Users(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Mối quan hệ: Một người dùng có nhiều giao dịch
-    transactions = relationship("Transaction", back_populates="user", lazy=True)
+    transactions = relationship("Transaction",back_populates="user",foreign_keys="[Transaction.user_id]")
     # Mối quan hệ: Một người dùng có nhiều vé
     tickets = relationship("Tickets", back_populates="user", lazy=True) 
     # Một rank có nhiều user
