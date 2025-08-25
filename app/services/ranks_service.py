@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.models.ranks import Ranks
-from app.schemas.ranks import RankCreate, RankUpdate
+from app.schemas.ranks import RankCreate, RankUpdate, RankResponse
 from sqlalchemy import desc
 
 # Lấy tất cả ranks với phân trang và tìm kiếm
@@ -12,14 +12,14 @@ def get_all_ranks(db: Session, skip: int = 0, limit: int = 10, search_query: str
         query = query.filter(Ranks.rank_name.ilike(f"%{search_query}%"))
     total = query.count()
     ranks = query.offset(skip).limit(limit).all()
-    return {"items": ranks, "total": total}
+    return {"items": [RankResponse.from_orm(rank) for rank in ranks], "total": total}
 
 # Lấy rank theo ID, có kiểm tra tồn tại 
 def get_rank_by_id(db: Session, rank_id: int):
     rank = db.query(Ranks).filter(Ranks.rank_id == rank_id).first()
     if not rank:
         raise HTTPException(status_code=404, detail="Xếp hạng không tìm thấy")
-    return rank
+    return RankResponse.from_orm(rank)
 
 # Tạo rank mới
 def create_rank(db: Session, rank_data: RankCreate):
@@ -39,7 +39,7 @@ def create_rank(db: Session, rank_data: RankCreate):
     db.add(rank)
     db.commit()
     db.refresh(rank)
-    return rank
+    return RankResponse.from_orm(rank)
 
 # Cập nhật rank
 def update_rank(db: Session, rank_id: int, rank_data: RankUpdate):
@@ -61,7 +61,7 @@ def update_rank(db: Session, rank_id: int, rank_data: RankUpdate):
     
     db.commit()
     db.refresh(rank)
-    return rank
+    return RankResponse.from_orm(rank)
 
 # Xoá rank
 def delete_rank(db: Session, rank_id: int):

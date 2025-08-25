@@ -20,7 +20,7 @@ class RankUpdate(BaseModel):
     combo_percent: Optional[float] = None
     is_default: Optional[bool] = None
 
-class RankResponse(RankBase):
+class RankResponse(RankBase):   
     rank_id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

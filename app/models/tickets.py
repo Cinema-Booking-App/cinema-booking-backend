@@ -20,3 +20,8 @@ class Tickets(Base):
     cancelled_at = Column(DateTime, nullable=True)
 
     transaction_tickets = relationship("TransactionTickets", back_populates="ticket")
+    # Mối quan hệ với các bảng khác
+    user = relationship("Users", back_populates="tickets")
+    showtime = relationship("Showtimes", back_populates="tickets")
+    seat = relationship("Seats", back_populates="tickets")
+    promotions = relationship("Promotions", back_populates="tickets")
