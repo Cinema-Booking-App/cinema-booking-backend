@@ -1,15 +1,15 @@
 from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.token_utils import create_token
 from app.models.email_verifications import EmailVerification
+from app.models.role import Role, UserRole
 from app.models.users import Users, UserStatusEnum
 
 # Thêm import cho model Role và UserRole
-from app.models.roles import Roles, UserRole
 from app.schemas.auth import EmailVerificationRequest, UserLogin, UserRegister
 from app.schemas.users import UserResponse
 from app.services.email_service import EmailService
@@ -17,7 +17,6 @@ from app.services.users_service import pwd_context
 from fastapi.security import HTTPBearer, OAuth2PasswordBearer
 
 # --- Khởi tạo dịch vụ email và OAuth2 scheme ---
-# Khởi tạo EmailService với các thông tin cấu hình từ settings
 email_service = EmailService(
     smtp_server="smtp.gmail.com",
     smtp_port=587,
@@ -26,7 +25,6 @@ email_service = EmailService(
 )
 
 
-# Khai báo OAuth2 scheme cho việc lấy token từ header
 # oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 security_scheme = HTTPBearer()
 
@@ -38,7 +36,7 @@ def create_access_token(data: dict) -> str:
 
 def create_refresh_token(data: dict) -> str:
     """Tạo token làm mới (refresh token)."""
-    refresh_token_expires = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     return create_token(data, refresh_token_expires, "refresh")
 
 
@@ -65,11 +63,17 @@ def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = db.query(Users).filter(Users.email == email).first()
+    user = (
+        db.query(Users)
+        .options(joinedload(Users.roles))  # Thêm joinedload để nạp trước thông tin vai trò
+        .filter(Users.email == email)
+        .first()
+    )
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không tồn tại"
         )
+
     return UserResponse.from_orm(user)
 
 
@@ -115,7 +119,7 @@ def register(db: Session, user_in: UserRegister):
 
         # Thêm logic gán role mặc định cho người dùng mới
         # Tìm role 'user' trong database. Nếu không tồn tại thì raise lỗi
-        default_role = db.query(Roles).filter(Roles.role_name == "user").first()
+        default_role = db.query(Role).filter(Role.role_name == "user").first()
         if not default_role:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -166,7 +170,7 @@ def login(db: Session, user_in: UserLogin):
         )
     # Lấy vai trò của người dùng và thêm vào payload token
     user_roles_db = (
-        db.query(Roles.role_name)
+        db.query(Role.role_name)
         .join(UserRole)
         .filter(UserRole.user_id == user.user_id)
         .all()

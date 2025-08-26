@@ -1,51 +1,50 @@
-from sqlalchemy import Integer, Column, String, Text, Numeric, Enum, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Text, Numeric, ForeignKey, Enum, DateTime, func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
-from datetime import datetime
 import enum
-
+# Enum trạng thái combo
 class ComboStatusEnum(str, enum.Enum):
     active = "active"
     inactive = "inactive"
     deleted = "deleted"
 
-class Combos(Base):
-    __tablename__ = "combos"
 
-    combo_id = Column(Integer, primary_key=True, index=True)
-    combo_name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    price = Column(Numeric, nullable=False)
-    image_url = Column(Text, nullable=True)
-    status = Column(Enum(ComboStatusEnum, name="combo_status"), default=ComboStatusEnum.active, server_default="active")
-    created_at = Column(DateTime, default=datetime.utcnow)
+# Bảng ComboDishes
+class ComboDish(Base):
+    __tablename__ = 'combo_dishes'
 
-    items = relationship("ComboItems", back_populates="combo", cascade="all, delete-orphan")
+    dish_id = Column(Integer, primary_key=True, autoincrement=True)
+    dish_name = Column(String, nullable=False)
+    description = Column(Text)
+
+    # Quan hệ với ComboItem
+    combo_items = relationship("ComboItem", back_populates="dish")
 
 
-# Bảng combo_dishes
-class ComboDishes(Base):
-    __tablename__ = "combo_dishes"
+# Bảng Combos
+class Combo(Base):
+    __tablename__ = 'combos'
 
-    dish_id = Column(Integer, primary_key=True, index=True)
-    dish_name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
+    combo_id = Column(Integer, primary_key=True, autoincrement=True)
+    combo_name = Column(String(255), unique=True, nullable=False)
+    description = Column(Text)
+    price = Column(Numeric(10, 2), nullable=False)
+    image_url = Column(String(255))
+    status = Column(Enum(ComboStatusEnum), default=ComboStatusEnum.active)
 
-    # Quan hệ đến combo_items
-    items = relationship("ComboItems", back_populates="dish", cascade="all, delete-orphan")
-    
+    # Quan hệ với ComboItem
+    combo_items = relationship("ComboItem", back_populates="combo")
 
-# Bảng combo_items (trung gian combo - món ăn)
-class ComboItems(Base):
-    __tablename__ = "combo_items"
 
-    item_id = Column(Integer, primary_key=True, index=True)
-    combo_id = Column(Integer, ForeignKey("combos.combo_id"), nullable=False, index=True)
-    dish_id = Column(Integer, ForeignKey("combo_dishes.dish_id"), nullable=True, index=True)
+# Bảng ComboItems (Bảng trung gian)
+class ComboItem(Base):
+    __tablename__ = 'combo_items'
+
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    combo_id = Column(Integer, ForeignKey('combos.combo_id'), nullable=False)
+    dish_id = Column(Integer, ForeignKey('combo_dishes.dish_id'), nullable=False)
     quantity = Column(Integer, nullable=False)
 
-    # Quan hệ đến combos
-    combo = relationship("Combos", back_populates="items")
-
-    # Quan hệ đến combo_dishes
-    dish = relationship("ComboDishes", back_populates="items")
+    # Quan hệ tới Combo và ComboDish
+    combo = relationship("Combo", back_populates="combo_items")
+    dish = relationship("ComboDish", back_populates="combo_items")
