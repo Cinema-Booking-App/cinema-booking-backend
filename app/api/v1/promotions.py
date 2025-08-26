@@ -10,17 +10,18 @@ from app.utils.response import success_response
 
 router = APIRouter()
 
-@router.get("/promotions", response_model=list[PromotionResponse])
+@router.get("/promotions")
 def list_promotions(db: Session = Depends(get_db)):
     """Get all promotions with computed status"""
-    return get_all_promotions(db)
+    promotions =  get_all_promotions(db)
+    return success_response(promotions)
 
-@router.get("/promotions/active", response_model=list[PromotionResponse])
+@router.get("/promotions/active")
 def list_active_promotions(db: Session = Depends(get_db)):
     """Get only active promotions that are within their valid date range"""
     return get_active_promotions(db)
 
-@router.get("/promotions/{promotion_id}", response_model=PromotionResponse)
+@router.get("/promotions/{promotion_id}")
 def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
     """Get a specific promotion by ID"""
     return get_promotion_by_id(db, promotion_id)

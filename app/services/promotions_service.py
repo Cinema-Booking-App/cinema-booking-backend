@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from datetime import date
 from app.models.promotions import Promotions
-from app.schemas.promotions import PromotionCreate, PromotionUpdate
+from app.schemas.promotions import PromotionCreate, PromotionUpdate,PromotionResponse
 
 def get_all_promotions(db: Session):
-    return db.query(Promotions).all()
+    promotions = db.query(Promotions).all()
+    return [PromotionResponse.from_orm(promotion) for promotion in promotions]
 
 def get_promotion_by_id(db: Session, promotion_id: int):
     promotion = db.query(Promotions).filter(Promotions.promotion_id == promotion_id).first()
