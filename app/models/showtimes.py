@@ -32,14 +32,30 @@ class Showtimes(Base):
     theater_id = Column(Integer, ForeignKey("theaters.theater_id"), nullable=False)
     room_id = Column(Integer, ForeignKey("rooms.room_id"), nullable=False)
     show_datetime = Column(DateTime, nullable=False)
-    format = Column(Enum(FormatTypeEnum, name="format_type"),nullable=False,default=FormatTypeEnum.TWO_D,server_default="TWO_D")
+    format = Column(
+        Enum(FormatTypeEnum, name="format_type"),
+        nullable=False,
+        default=FormatTypeEnum.TWO_D,
+        server_default="TWO_D",
+    )
     ticket_price = Column(Numeric(10, 2), nullable=False)
-    status = Column(Enum(StatusShowtimeEnum),nullable=False,default=StatusShowtimeEnum.active,server_default="active")
-    language = Column(Enum(LanguageEnum),nullable=False,default=LanguageEnum.original,server_default="original")
+    status = Column(
+        Enum(StatusShowtimeEnum),
+        nullable=False,
+        default=StatusShowtimeEnum.active,
+        server_default="active",
+    )
+    language = Column(
+        Enum(LanguageEnum),
+        nullable=False,
+        default=LanguageEnum.original,
+        server_default="original",
+    )
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-        # Định nghĩa các mối quan hệ
+    # Định nghĩa các mối quan hệ
     movie = relationship("Movies")
     theater = relationship("Theaters")
     room = relationship("Rooms")
+    tickets = relationship("Tickets")

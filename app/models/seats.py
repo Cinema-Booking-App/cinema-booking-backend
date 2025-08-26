@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String, func, ForeignKey
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.seat_templates import SeatTypeEnum
 
@@ -13,3 +14,5 @@ class Seats(Base):
     column_number = Column(Integer, nullable=False)
     is_edge = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
+
+    tickets = relationship("Tickets")

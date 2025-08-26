@@ -16,9 +16,8 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 10, search_query: str
                 (Users.full_name.ilike(f"%{search_query}%")) |
                 (Users.email.ilike(f"%{search_query}%"))
             )
-        total = query.count()
         users = query.offset(skip).limit(limit).all()
-        return {"items": [UserResponse.from_orm(u) for u in users], "total": total}
+        return [UserResponse.from_orm(u) for u in users]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách người dùng: {str(e)}")
 
