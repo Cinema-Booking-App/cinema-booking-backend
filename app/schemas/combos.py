@@ -1,65 +1,70 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Optional, List
-from enum import Enum
 from datetime import datetime
 
-# Enum trạng thái combo
-class ComboStatusEnum(str, Enum):
-    active = "active"
-    inactive = "inactive"
-    deleted = "deleted"
-
-# ======== Dish Schemas ========= #
-
-class DishBase(BaseModel):
-    dish_name: str
-    description: Optional[str] = None
-
-class DishCreate(DishBase):
-    pass
-
-class DishResponse(DishBase):
-    dish_id: int
-
-    class Config:
-        from_attributes = True
-
-# ======== Combo Item Schemas ========= #
-
+# Combo Item dùng để lồng trong combo
 class ComboItemBase(BaseModel):
     dish_id: int
-    quantity: int = Field(..., gt=0)  # Đảm bảo quantity > 0
+    quantity: int
 
 class ComboItemCreate(ComboItemBase):
     pass
 
+class ComboItemUpdate(BaseModel):
+    dish_id: Optional[int]
+    quantity: Optional[int]
+
 class ComboItemResponse(ComboItemBase):
     item_id: int
-    dish_name: Optional[str] = None
-    description: Optional[str] = None
 
     class Config:
         from_attributes = True
 
-# ======== Combo Schemas ========= #
 
+# Combo
 class ComboBase(BaseModel):
     combo_name: str
     description: Optional[str] = None
-    price: float = Field(..., gt=0)  # Đảm bảo price > 0
+    price: float
     image_url: Optional[str] = None
-    status: Optional[ComboStatusEnum] = ComboStatusEnum.active
+    status: Optional[str] = None
 
 class ComboCreate(ComboBase):
     items: List[ComboItemCreate]
+    status: Optional[str] = "active"
 
-class ComboUpdate(ComboBase):
-    items: Optional[List[ComboItemCreate]] = None
+class ComboUpdate(BaseModel):
+    combo_name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    image_url: Optional[str] = None
+    status: Optional[str] = None
+    items: Optional[List[ComboItemUpdate]]
 
 class ComboResponse(ComboBase):
     combo_id: int
-    created_at: datetime
-    items: List[ComboItemResponse]
+    combo_items: List[ComboItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+# Schema cơ sở cho ComboDish
+class ComboDishBase(BaseModel):
+    dish_name: str
+    description: Optional[str] = None
+
+# Schema cho tạo mới ComboDish
+class ComboDishCreate(ComboDishBase):
+    pass
+
+# Schema cho cập nhật ComboDish
+class ComboDishUpdate(BaseModel):
+    dish_name: Optional[str] = None
+    description: Optional[str] = None
+
+# Schema cho phản hồi ComboDish
+class ComboDishResponse(ComboDishBase):
+    dish_id: int
 
     class Config:
         from_attributes = True

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.tickets import TicketsCreate
@@ -9,5 +10,9 @@ router =APIRouter()
 
 # Nhân viên Tạo vé trực tiếp tại quầy
 @router.post("/tickets/direct",status_code=201)
-def add_ticket_directly(ticket_in : TicketsCreate , db : Session = Depends(get_db)):
+def add_ticket_directly(
+    ticket_in : TicketsCreate,
+    db : Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return create_ticket_directly(ticket_in=ticket_in ,db=db)

@@ -1,230 +1,131 @@
+from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
-from app.models.combos import Combos, ComboItems, ComboDishes
-from app.schemas.combos import ComboCreate, ComboUpdate, ComboResponse, ComboItemResponse, DishCreate, DishResponse
-from sqlalchemy.exc import SQLAlchemyError
+from app.schemas.common import PaginatedResponse
+from app.models.combos import Combo, ComboDish, ComboItem
+from app.schemas.combos import ComboCreate, ComboUpdate, ComboDishCreate, ComboDishUpdate
+from sqlalchemy import desc
 
-def create_dish(db: Session, dish_data: DishCreate):
-    try:
-        # Kiểm tra trùng dish_name
-        existing_dish = db.query(ComboDishes).filter(ComboDishes.dish_name == dish_data.dish_name).first()
-        if existing_dish:
-            raise HTTPException(status_code=400, detail="Dish name đã tồn tại.")
-
-        new_dish = ComboDishes(
-            dish_name=dish_data.dish_name,
-            description=dish_data.description
-        )
-        db.add(new_dish)
-        db.commit()
-        db.refresh(new_dish)
-        return DishResponse(
-            dish_id=new_dish.dish_id,
-            dish_name=new_dish.dish_name,
-            description=new_dish.description
-        )
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating dish: {str(e)}")
-
-def create_combo(db: Session, combo_data: ComboCreate):
-    try:
-        # Kiểm tra trùng combo_name
-        existing_combo = db.query(Combos).filter(Combos.combo_name == combo_data.combo_name).first()
-        if existing_combo:
-            raise HTTPException(status_code=400, detail="Combo name đã tồn tại.")
-
-        # Kiểm tra dish_id hợp lệ
-        for item in combo_data.items:
-            dish = db.query(ComboDishes).filter(ComboDishes.dish_id == item.dish_id).first()
-            if not dish:
-                raise HTTPException(status_code=400, detail=f"Dish ID {item.dish_id} không tồn tại.")
-
-        # Tạo combo mới
-        new_combo = Combos(
-            combo_name=combo_data.combo_name,
-            description=combo_data.description,
-            price=combo_data.price,
-            image_url=combo_data.image_url,
-            status=combo_data.status
-        )
-        db.add(new_combo)
-        db.flush()  # Lấy combo_id
-
-        # Tạo các item trong combo
-        for item in combo_data.items:
-            db_item = ComboItems(
-                combo_id=new_combo.combo_id,
-                dish_id=item.dish_id,
-                quantity=item.quantity,
-            )
-            db.add(db_item)
-
-        db.commit()
-        db.refresh(new_combo)
-
-        # Truy vấn items với join để lấy dish_name và description
-        items = (db.query(ComboItems)
-                 .join(ComboDishes, ComboItems.dish_id == ComboDishes.dish_id)
-                 .filter(ComboItems.combo_id == new_combo.combo_id)
-                 .all())
-
-        return ComboResponse(
-            combo_id=new_combo.combo_id,
-            combo_name=new_combo.combo_name,
-            description=new_combo.description,
-            price=new_combo.price,
-            image_url=new_combo.image_url,
-            status=new_combo.status,
-            created_at=new_combo.created_at,
-            items=[
-                ComboItemResponse(
-                    item_id=item.item_id,
-                    dish_id=item.dish_id,
-                    quantity=item.quantity,
-                    dish_name=item.dish.dish_name,
-                    description=item.dish.description
-                ) for item in items
-            ]
-        )
-
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating combo: {str(e)}")
-
-def get_combo_by_id(db: Session, combo_id: int):
-    # Sử dụng joinedload để lấy items và dishes trong cùng một truy vấn
-    combo = (db.query(Combos)
-             .options(joinedload(Combos.items).joinedload(ComboItems.dish))
-             .filter(Combos.combo_id == combo_id)
-             .first())
-    if not combo:
-        raise HTTPException(status_code=404, detail="Không tìm thấy combo có ID này.")
-
-    return ComboResponse(
-        combo_id=combo.combo_id,
-        combo_name=combo.combo_name,
-        description=combo.description,
-        price=combo.price,
-        image_url=combo.image_url,
-        status=combo.status,
-        created_at=combo.created_at,
-        items=[
-            ComboItemResponse(
-                item_id=item.item_id,
-                dish_id=item.dish_id,
-                quantity=item.quantity,
-                dish_name=item.dish.dish_name,
-                description=item.dish.description
-            ) for item in combo.items
-        ]
-    )
-
-def get_all_combos(db: Session):
-    # Sử dụng joinedload để lấy tất cả combos, items và dishes trong một truy vấn
-    combos = (db.query(Combos)
-              .options(joinedload(Combos.items).joinedload(ComboItems.dish))
-              .all())
-    result = []
+# ==================== COMBO CRUD ====================
+# Lấy tất cả combo kèm theo combo_items
+def get_all_combos(db: Session, skip: int = 0, limit: int = 10, search_query: str = None):
+    query = db.query(Combo).options(joinedload(Combo.combo_items).joinedload(ComboItem.dish)).order_by(desc(Combo.combo_id))
+    if search_query:
+        query = query.filter(Combo.combo_name.ilike(f"%{search_query}%"))
+    total = query.count()
+    combos = query.offset(skip).limit(limit).all()
     for combo in combos:
-        result.append(
-            ComboResponse(
-                combo_id=combo.combo_id,
-                combo_name=combo.combo_name,
-                description=combo.description,
-                price=combo.price,
-                image_url=combo.image_url,
-                status=combo.status,
-                created_at=combo.created_at,
-                items=[
-                    ComboItemResponse(
-                        item_id=item.item_id,
-                        dish_id=item.dish_id,
-                        quantity=item.quantity,
-                        dish_name=item.dish.dish_name,
-                        description=item.dish.description
-                    ) for item in combo.items
-                ]
-            )
-        )
-    return result
+        combo.combo_items  # load lazy
+    return {"items": combos, "total": total}
 
-def update_combo(db: Session, combo_id: int, combo_data: ComboUpdate):
-    try:
-        combo = db.query(Combos).filter(Combos.combo_id == combo_id).first()
-        if not combo:
-            raise HTTPException(status_code=404, detail="Không tìm thấy combo cần cập nhật.")
+# Lấy combo theo ID, có kiểm tra tồn tại và load combo_items
+def get_combo_by_id(db: Session, combo_id: int):
+    combo = db.query(Combo).options(joinedload(Combo.combo_items).joinedload(ComboItem.dish)).filter(Combo.combo_id == combo_id).first()
+    if not combo:
+        raise HTTPException(status_code=404, detail="Combo not found")
+    combo.combo_items  # load lazy
+    return combo
 
-        # Kiểm tra trùng combo_name (trừ combo hiện tại)
-        existing_combo = db.query(Combos).filter(Combos.combo_name == combo_data.combo_name, Combos.combo_id != combo_id).first()
-        if existing_combo:
-            raise HTTPException(status_code=400, detail="Combo name đã tồn tại.")
+# Tạo combo và danh sách combo_items đi kèm
+def create_combo(db: Session, combo_data: ComboCreate):
+    # Tạo combo chính
+    for item in combo_data.items:
+        if not db.query(ComboDish).filter(ComboDish.dish_id == item.dish_id).first():
+            raise HTTPException(status_code=404, detail=f"Dish with id {item.dish_id} not found")
+    
+    combo = Combo(
+        combo_name=combo_data.combo_name,
+        description=combo_data.description,
+        price=combo_data.price,
+        image_url=combo_data.image_url,
+        status=combo_data.status,
+    )
+    db.add(combo)
+    db.commit()
+    db.refresh(combo)
 
-        # Cập nhật thông tin combo
-        combo.combo_name = combo_data.combo_name
-        combo.description = combo_data.description
-        combo.price = combo_data.price
-        combo.image_url = combo_data.image_url
-        if combo_data.status is not None:
-            combo.status = combo_data.status
-
-        # Cập nhật items nếu có
-        if combo_data.items is not None:
-            # Kiểm tra dish_id hợp lệ
-            for item in combo_data.items:
-                dish = db.query(ComboDishes).filter(ComboDishes.dish_id == item.dish_id).first()
-                if not dish:
-                    raise HTTPException(status_code=400, detail=f"Dish ID {item.dish_id} không tồn tại.")
-            
-            # Xóa items cũ
-            db.query(ComboItems).filter(ComboItems.combo_id == combo_id).delete()
-            # Thêm items mới
-            for item in combo_data.items:
-                db.add(ComboItems(
-                    combo_id=combo_id,
-                    dish_id=item.dish_id,
-                    quantity=item.quantity
-                ))
-
-        db.commit()
-        db.refresh(combo)
-
-        # Truy vấn lại items với join để lấy dish_name và description
-        items = (db.query(ComboItems)
-                 .join(ComboDishes, ComboItems.dish_id == ComboDishes.dish_id)
-                 .filter(ComboItems.combo_id == combo_id)
-                 .all())
-        return ComboResponse(
+    # Thêm combo_items
+    for item in combo_data.items:
+        combo_item = ComboItem(
             combo_id=combo.combo_id,
-            combo_name=combo.combo_name,
-            description=combo.description,
-            price=combo.price,
-            image_url=combo.image_url,
-            status=combo.status,
-            created_at=combo.created_at,
-            items=[
-                ComboItemResponse(
-                    item_id=item.item_id,
-                    dish_id=item.dish_id,
-                    quantity=item.quantity,
-                    dish_name=item.dish.dish_name,
-                    description=item.dish.description
-                ) for item in items
-            ]
+            dish_id=item.dish_id,
+            quantity=item.quantity,
         )
+        db.add(combo_item)
+    db.commit()
+    db.refresh(combo)
+    return combo
 
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating combo: {str(e)}")
+# Cập nhật combo và cập nhật danh sách combo_items nếu có
+def update_combo(db: Session, combo_id: int, combo_data: ComboUpdate):
+    combo = get_combo_by_id(db, combo_id)
 
-def delete_combo(db: Session, combo_id: int):
-    try:
-        combo = db.query(Combos).filter(Combos.combo_id == combo_id).first()
-        if not combo:
-            raise HTTPException(status_code=404, detail="Không tìm thấy combo cần xóa.")
-        db.delete(combo)
+    # Cập nhật các trường combo
+    if combo_data.items is not None:
+        for item in combo_data.items:
+            if not db.query(ComboDish).filter(ComboDish.dish_id == item.dish_id).first():
+                raise HTTPException(status_code=404, detail=f"Dish with id {item.dish_id} not found")
+
+    for field, value in combo_data.dict(exclude_unset=True, exclude={"items"}).items():
+        setattr(combo, field, value)
+    db.commit()
+
+    # Nếu có cập nhật danh sách items → xóa hết và thêm lại
+    if combo_data.items is not None:
+        db.query(ComboItem).filter(ComboItem.combo_id == combo_id).delete()
+        for item in combo_data.items:
+            combo_item = ComboItem(
+                combo_id=combo.combo_id,
+                dish_id=item.dish_id,
+                quantity=item.quantity,
+            )
+            db.add(combo_item)
         db.commit()
-        return True
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting combo: {str(e)}")
+
+    db.refresh(combo)
+    return combo
+
+# Xóa combo và các combo_items liên quan
+def delete_combo(db: Session, combo_id: int):
+    combo = get_combo_by_id(db, combo_id)
+
+    # Xóa combo_items trước
+    db.query(ComboItem).filter(ComboItem.combo_id == combo_id).delete()
+    db.delete(combo)
+    db.commit()
+
+    return {"message": "Combo deleted successfully"}
+
+
+# ==================== DISH CRUD ====================
+def get_all_dishes(db: Session):
+    return db.query(ComboDish).all()
+
+def get_dish_by_id(db: Session, dish_id: int):
+    dish = db.query(ComboDish).filter(ComboDish.dish_id == dish_id).first()
+    if not dish:
+        raise HTTPException(status_code=404, detail="Dish not found")
+    return dish
+
+def create_dish(db: Session, dish_data: ComboDishCreate):
+    dish = ComboDish(**dish_data.dict())
+    db.add(dish)
+    db.commit()
+    db.refresh(dish)
+    return dish
+
+def update_dish(db: Session, dish_id: int, dish_data: ComboDishUpdate):
+    dish = get_dish_by_id(db, dish_id)
+    for field, value in dish_data.dict(exclude_unset=True).items():
+        setattr(dish, field, value)
+    db.commit()
+    db.refresh(dish)
+    return dish
+
+def delete_dish(db: Session, dish_id: int):
+    dish = get_dish_by_id(db, dish_id)
+    db.delete(dish)
+    db.commit()
+    return {"message": "Dish deleted successfully"}
+
+

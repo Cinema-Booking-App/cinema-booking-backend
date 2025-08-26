@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.promotions import PromotionCreate, PromotionUpdate, PromotionResponse, PromotionStatusUpdate
@@ -46,3 +47,4 @@ def delete_existing_promotion(promotion_id: int, db: Session = Depends(get_db)):
     """Delete a promotion"""
     result = delete_promotion(db, promotion_id)
     return success_response(data=result, message="Promotion deleted successfully") 
+

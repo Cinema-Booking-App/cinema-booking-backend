@@ -13,6 +13,8 @@ CREATE TYPE transaction_status AS ENUM ('pending', 'success', 'failed');
 
 CREATE TYPE user_status AS ENUM ('pending', 'active', 'inactive');
 
+CREATE TYPE gender_enum AS ENUM ('male', 'female', 'other');
+
 CREATE TYPE combo_status AS ENUM ('active', 'inactive');
 
 CREATE TYPE theater_type_status AS ENUM ('active', 'inactive');
@@ -27,18 +29,22 @@ CREATE TYPE format_type AS ENUM ('TWO_D', 'THREE_D', 'IMAX', '4DX');
 
 -- Bảng Roles
 CREATE TABLE roles (
-    "role_id" SERIAL PRIMARY KEY,
-    "role_name" VARCHAR(255) NOT NULL,
-    "description" VARCHAR(255) UNIQUE NOT NULL
+    role_id SERIAL PRIMARY KEY,
+    role_name VARCHAR(255) NOT NULL,
+    description VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE permissions (
     permission_id SERIAL PRIMARY KEY,
     permission_name VARCHAR(255) UNIQUE NOT NULL, -- Tên quyền (ví dụ: view_movies, create_showtimes)
     description TEXT NOT NULL, -- Mô tả quyền
-    created_at TIMESTAMP
-    WITH
-        TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    module VARCHAR(100) NOT NULL, -- Nhóm quyền theo module (movies, schedules, users, reports, system)
+    actions TEXT[] NOT NULL, 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+
 );
 
 CREATE TABLE role_permissions (
@@ -52,9 +58,18 @@ CREATE TABLE role_permissions (
 CREATE TABLE users (
     "user_id" SERIAL PRIMARY KEY,
     "full_name" VARCHAR(255) NOT NULL,
-    "email" VARCHAR(255) UNIQUE NOT NULL,
+    "email" VARCHAR(255) NOT NULL UNIQUE,
     "password_hash" VARCHAR(255) NOT NULL,
+    "phone" VARCHAR(20) UNIQUE,
+    "avatar_url" VARCHAR(500),
+    "date_of_birth" DATE,
+    "gender" gender_enum,
     "status" user_status DEFAULT 'active',
+    "is_verified" BOOLEAN NOT NULL DEFAULT FALSE,
+    "last_login" TIMESTAMP,
+    "loyalty_points" INTEGER NOT NULL DEFAULT 0,
+    "rank_id" INTEGER REFERENCES ranks(rank_id),
+    "total_spent" NUMERIC(15,2) DEFAULT 0,
     "created_at" TIMESTAMP
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -62,6 +77,7 @@ CREATE TABLE users (
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
 
 CREATE TABLE user_roles (
     user_role_id SERIAL PRIMARY KEY,
@@ -127,18 +143,35 @@ CREATE TABLE combos (
     "combo_name" VARCHAR(255) UNIQUE NOT NULL,
     "description" TEXT,
     "price" NUMERIC(10, 2) NOT NULL,
+    "image_url" VARCHAR(255),
     "status" combo_status DEFAULT 'active',
-    "created_at" TIMESTAMP
-    WITH
-        TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Bảng ComboItems (Chi tiết các thành phần trong Combo)
 CREATE TABLE combo_items (
     "item_id" SERIAL PRIMARY KEY,
     "combo_id" INTEGER NOT NULL,
-    "item_name" VARCHAR(100) NOT NULL,
+    "dish_id" INTEGER NOT NULL,
     "quantity" INTEGER NOT NULL
+);
+
+-- Bảng ComboDishes (Chi tiết các thành phần trong Combo)
+CREATE TABLE combo_dishes (
+    "dish_id" SERIAL PRIMARY KEY,
+    "dish_name" VARCHAR NOT NULL,
+    "description" TEXT
+);
+
+-- Bảng Ranks
+CREATE TABLE ranks (
+    "rank_id" SERIAL PRIMARY KEY,              -- ID tự tăng
+    "rank_name" VARCHAR(50) NOT NULL,           -- Tên cấp bậc
+    "spending_target" NUMERIC(15,2) NOT NULL,   -- Tổng chi tiêu yêu cầu (VND)
+    "ticket_percent" NUMERIC(5,2) NOT NULL,     -- % tích lũy khi mua vé
+    "combo_percent" NUMERIC(5,2) NOT NULL,      -- % tích lũy khi mua combo
+    "is_default" BOOLEAN DEFAULT FALSE,         -- Cấp mặc định hay không
+    "created_at" TIMESTAMPTZ DEFAULT NOW(),     -- Ngày tạo
+    "updated_at" TIMESTAMPTZ DEFAULT NOW() 
 );
 
 -- Bảng SeatLayouts (Bố cục ghế)
@@ -203,7 +236,6 @@ CREATE TABLE showtimes (
     "showtime_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "room_id" INTEGER NOT NULL,
-    "theater_id" INTEGER NOT NULL,
     "show_datetime" TIMESTAMP
     WITH
         TIME ZONE NOT NULL,
@@ -313,6 +345,17 @@ CREATE TABLE email_verifications (
 
 -- Phần 3: Tạo Indexes (Chỉ mục)
 -- Các chỉ mục giúp tăng tốc độ truy vấn
+
+CREATE INDEX idx_combos_name ON combos (combo_name);
+
+CREATE INDEX idx_combo_dishes_name ON combo_dishes (dish_name);
+
+CREATE INDEX idx_combo_items_combo_id ON combo_items (combo_id);
+
+CREATE INDEX idx_ranks_name ON ranks (rank_name);
+
+CREATE INDEX idx_ranks_is_default ON ranks (is_default);
+
 CREATE INDEX idx_movies_title ON movies (title);
 
 CREATE INDEX idx_movies_status ON movies (status);
@@ -343,14 +386,29 @@ CREATE INDEX idx_transactions_staff_user_id ON transactions (staff_user_id);
 
 CREATE INDEX idx_users_email ON users (email);
 
+CREATE INDEX idx_users_full_name ON users (full_name);
+
+CREATE INDEX idx_users_phone ON users (phone);
+
 CREATE INDEX idx_roles_role_name ON roles (role_name);
 
 CREATE INDEX idx_permissions_permission_name ON permissions (permission_name);
 
 -- Phần 4: Thêm các Ràng buộc Khóa ngoại (Foreign Keys)
 -- Đảm bảo các bảng đã được tạo trước khi thêm FK
+
+-- Thêm cột rank_id vào bảng users và ràng buộc khóa ngoại
+ALTER TABLE users
+ADD COLUMN rank_id INTEGER,
+ADD CONSTRAINT fk_users_rank_id FOREIGN KEY (rank_id) REFERENCES ranks (rank_id) ON DELETE SET NULL;
+
+-- Thêm khóa ngoại cho combo_id
 ALTER TABLE combo_items
 ADD CONSTRAINT fk_combo_items_combo_id FOREIGN KEY (combo_id) REFERENCES combos (combo_id) ON DELETE CASCADE;
+
+-- Thêm khóa ngoại cho dish_id (liên kết với combo_dishes)
+ALTER TABLE combo_items
+ADD CONSTRAINT fk_combo_items_dish_id FOREIGN KEY (dish_id) REFERENCES combo_dishes (dish_id) ON DELETE CASCADE;
 
 ALTER TABLE reviews
 ADD CONSTRAINT fk_reviews_movie_id FOREIGN KEY (movie_id) REFERENCES movies (movie_id) ON DELETE CASCADE;
@@ -422,6 +480,15 @@ ALTER TABLE seat_reservations
 ADD CONSTRAINT fk_seat_reservations_transaction_id FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE SET NULL;
 
 -- Phần 5: Thêm các Ràng buộc CHECK (Kiểm tra dữ liệu)
+
+-- Thêm các ràng buộc CHECK cho bảng ranks
+ALTER TABLE ranks
+ADD CONSTRAINT chk_ranks_spending_target CHECK (spending_target >= 0),
+
+ADD CONSTRAINT chk_ranks_ticket_percent CHECK (ticket_percent >= 0 AND ticket_percent <= 100),
+
+ADD CONSTRAINT chk_ranks_combo_percent CHECK (combo_percent >= 0 AND combo_percent <= 100);
+
 ALTER TABLE combos
 ADD CONSTRAINT chk_combos_price CHECK (price >= 0);
 
@@ -469,3 +536,43 @@ ADD CONSTRAINT chk_transactions_total_amount CHECK (total_amount >= 0);
 
 ALTER TABLE transaction_combos
 ADD CONSTRAINT chk_transaction_combos_quantity CHECK (quantity > 0);
+
+ALTER TABLE users
+ADD CONSTRAINT chk_users_loyalty_points CHECK (loyalty_points >= 0);
+
+ALTER TABLE users
+ADD CONSTRAINT chk_users_total_spent CHECK (total_spent >= 0);
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho full_name (độ dài tối thiểu)
+ALTER TABLE users
+ADD CONSTRAINT chk_users_full_name CHECK (LENGTH(full_name) >= 2);
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho định dạng email
+ALTER TABLE users
+ADD CONSTRAINT chk_users_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+
+-- (Tùy chọn) Thêm ràng buộc CHECK cho phone (chỉ cho phép số, dấu +, dấu -)
+ALTER TABLE users
+ADD CONSTRAINT chk_users_phone CHECK (phone ~* '^[0-9+\-]{7,20}$');
+
+-- Phần 6: Tạo Triggers và Functions
+
+-- Function để cập nhật total_spent trong bảng users
+CREATE OR REPLACE FUNCTION update_user_total_spent()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE users
+    SET total_spent = (
+        SELECT COALESCE(SUM(amount), 0)
+        FROM transactions
+        WHERE user_id = NEW.user_id AND status = 'completed'
+    )
+    WHERE user_id = NEW.user_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger để gọi function sau khi có thay đổi trong transactions
+CREATE TRIGGER trigger_update_total_spent
+AFTER INSERT OR UPDATE OR DELETE ON transactions
+FOR EACH ROW EXECUTE FUNCTION update_user_total_spent();

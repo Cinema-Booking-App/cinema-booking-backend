@@ -2,7 +2,6 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.models.users import Users
 from app.services.movies_service import *
 from app.schemas.movies import MovieCreate, MovieUpdate
 from fastapi import APIRouter
@@ -37,17 +36,30 @@ def detail_movie(movie_id: int, db: Session = Depends(get_db)):
 
 # Thêm một phim mới
 @router.post("/movies")
-def add_movie(movie_in: MovieCreate, db: Session = Depends(get_db)):
+def add_movie(
+    movie_in: MovieCreate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return success_response(create_movie(db, movie_in))
 
-
+    
 # Xóa một phim theo ID
 @router.delete("/movies/{movie_id}")
-def remove_movie(movie_id: int, db: Session = Depends(get_db)):
+def remove_movie(
+    movie_id: int,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return success_response(delete_movie(db, movie_id))
 
 
 # Cập nhật thông tin một phim theo ID
 @router.put("/movies/{movie_id}")
-def edit_movie(movie_id: int, movie_in: MovieUpdate, db: Session = Depends(get_db)):
+def edit_movie(
+    movie_id: int,
+    movie_in: MovieUpdate,
+    db: Session = Depends(get_db),
+    _ = Depends(get_current_active_user),
+):
     return success_response(update_movie(db, movie_id, movie_in))

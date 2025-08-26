@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Numeric, Date, Text, DateTime, Boolean, func
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 class Promotions(Base):
@@ -13,3 +14,5 @@ class Promotions(Base):
     description = Column(Text)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now()) 
+    
+    tickets = relationship("Tickets")

@@ -5,7 +5,7 @@ from app.models.seat_reservations import SeatReservations
 from app.models.seat_templates import SeatTypeEnum
 from app.models.seats import Seats
 from app.models.showtimes import Showtimes
-from app.models.transactions import TransactionStatus, TransactionTickets, Transactions
+from app.models.transactions import TransactionStatus, TransactionTickets, Transaction
 from app.schemas.tickets import TicketsCreate, TicketsResponse
 from sqlalchemy.orm import Session
 from app.models.tickets import Tickets
@@ -46,7 +46,7 @@ def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
         elif seat.seat_type == SeatTypeEnum.couple:
             base_price *= 2
 
-        db_transaction = Transactions(
+        db_transaction = Transaction(
             user_id=ticket_in.user_id,
             staff_user_id=ticket_in.user_id,
             # staff_user_id=staff_user_id, # Nhân viên thực hiện giao dịch
