@@ -11,8 +11,8 @@ class Role(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user_roles = relationship("UserRole", back_populates="role", lazy=True)
-    users = relationship("Users", secondary="user_roles", back_populates="roles")
+    user_roles = relationship("UserRole", back_populates="role", lazy=True, overlaps="roles")
+    users = relationship("Users", secondary="user_roles", back_populates="roles", overlaps="user_roles")
     permissions = relationship("Permissions", secondary=role_permissions, back_populates="roles")
 
 class UserRole(Base):
@@ -21,5 +21,5 @@ class UserRole(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     role_id = Column(Integer, ForeignKey("roles.role_id"), nullable=False)
     
-    user = relationship('Users', back_populates='user_roles')
-    role = relationship('Role', back_populates='user_roles')
+    user = relationship('Users', back_populates='user_roles', overlaps="roles,users")
+    role = relationship('Role', back_populates='user_roles', overlaps="roles,users")
