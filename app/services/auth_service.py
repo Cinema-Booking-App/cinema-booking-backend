@@ -8,6 +8,7 @@ from app.core.token_utils import create_token
 from app.models.email_verifications import EmailVerification
 from app.models.role import Role, UserRole
 from app.models.users import Users, UserStatusEnum
+from app.models.ranks import Ranks
 
 # Thêm import cho model Role và UserRole
 from app.schemas.auth import EmailVerificationRequest, UserLogin, UserRegister
@@ -96,11 +97,20 @@ def register(db: Session, user_in: UserRegister):
 
     try:
         hashed_password = pwd_context.hash(user_in.password)
+
+        # Lấy rank mặc định (ví dụ Bronze)
+        default_rank = db.query(Ranks).filter(Ranks.is_default == True).first()
+        if not default_rank:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Không tìm thấy rank mặc định trong hệ thống.",
+            )
         new_user = Users(
             full_name=user_in.full_name,
             email=user_in.email,
             password_hash=hashed_password,
             status=UserStatusEnum.pending,
+            rank_id=default_rank.rank_id,
         )
         db.add(new_user)
         db.commit()
