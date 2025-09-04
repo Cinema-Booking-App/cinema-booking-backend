@@ -1,5 +1,6 @@
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
 from app.models.users import Users, UserStatusEnum
 from app.schemas.users import UserResponse, UserCreate, UserUpdate
 from passlib.context import CryptContext
@@ -8,30 +9,57 @@ from app.models.role import UserRole
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Lấy danh sách người dùng với phân trang và tìm kiếm
-def get_all_users(db: Session, skip: int = 0, limit: int = 10, search_query: str = None):
+def get_all_users(db: Session, skip: int = 0, limit: int = 10, search_query: Optional[str] = None) -> dict:
     try:
-        query = db.query(Users)
+        query = db.query(Users).options(joinedload(Users.rank))
         if search_query:
+            search = f"%{search_query}%"
             query = query.filter(
-                (Users.full_name.ilike(f"%{search_query}%")) |
-                (Users.email.ilike(f"%{search_query}%"))
+                (Users.full_name.ilike(search)) |
+                (Users.email.ilike(search))
             )
+        total = query.count()
         users = query.offset(skip).limit(limit).all()
-        return [UserResponse.from_orm(u) for u in users]
+        # Ánh xạ rank_name vào response
+        user_responses = [
+            UserResponse(
+                **UserResponse.from_orm(u).dict(exclude={'rank'}),
+                rank_name=u.rank.rank_name if u.rank else None
+            ) for u in users
+        ]
+        return {
+            "items": user_responses,
+            "total": total
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy danh sách người dùng: {str(e)}")
 
 # Lấy người dùng theo id
 def get_user_by_id(db: Session, user_id: int):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if user:
-            return UserResponse.from_orm(user)
+            return UserResponse(
+                **UserResponse.from_orm(user).dict(exclude={'rank'}),
+                rank_name=user.rank.rank_name if user.rank else None
+            )
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng: {str(e)}")
 
 
+# Lấy người dùng theo email
+def get_user_by_email(db: Session, email: str):
+    try:
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.email == email).first()
+        if user:
+            return UserResponse(
+                **UserResponse.from_orm(user).dict(exclude={'rank'}),
+                rank_name=user.rank.rank_name if user.rank else None
+            )
+        raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng theo email: {str(e)}")
 
 # Tạo người dùng mới
 def create_user(db: Session, user_in: UserCreate):
@@ -60,7 +88,10 @@ def create_user(db: Session, user_in: UserCreate):
         db.add(user)
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi tạo người dùng: {str(e)}")
@@ -83,44 +114,35 @@ def delete_user(db: Session, user_id: int):
 # Sửa người dùng theo id
 def update_user(db: Session, user_id: int, user_in: UserUpdate):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-        # Cập nhật thông tin người dùng
         updated_user = user_in.dict(exclude_unset=True)
         for key, value in updated_user.items():
             setattr(user, key, value)
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật người dùng: {str(e)}")
 
-# Đặt lại mật khẩu (admin reset password)
-# def reset_user_password(db: Session, user_id: int, new_password: str):
-#     try:
-#         user = db.query(Users).filter(Users.user_id == user_id).first()
-#         if not user:
-#             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-#         user.password_hash = pwd_context.hash(new_password)
-#         db.commit()
-#         db.refresh(user)
-#         return {"message": "Đặt lại mật khẩu thành công"}
-#     except Exception as e:
-#         db.rollback()
-#         raise HTTPException(status_code=500, detail=f"Lỗi khi đặt lại mật khẩu: {str(e)}")
-
 # Cập nhật trạng thái người dùng (active/inactive/pending)
 def update_user_status(db: Session, user_id: int, status: UserStatusEnum):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
         user.status = status
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật trạng thái người dùng: {str(e)}")
@@ -142,15 +164,18 @@ def get_appropriate_rank(db: Session, total_spent: float):
 # Cập nhật điểm tích lũy (loyalty points)
 def update_loyalty_points(db: Session, user_id: int, points: int):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
         user.loyalty_points = points
         if user.loyalty_points < 0:
-            user.loyalty_points = 0  # Đảm bảo điểm không âm
+            user.loyalty_points = 0
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật điểm tích lũy: {str(e)}")
@@ -158,20 +183,22 @@ def update_loyalty_points(db: Session, user_id: int, points: int):
 # Cập nhật tổng chi tiêu (total_spent) và tự động cập nhật rank
 def update_total_spent(db: Session, user_id: int, amount: float):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
         user.total_spent = amount
         if user.total_spent < 0:
-            user.total_spent = 0  # Đảm bảo tổng chi tiêu không âm
+            user.total_spent = 0
         
-        # Tự động cập nhật rank dựa trên total_spent
         rank = get_appropriate_rank(db, user.total_spent)
         user.rank_id = rank.rank_id
         
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật tổng chi tiêu: {str(e)}")
@@ -179,16 +206,19 @@ def update_total_spent(db: Session, user_id: int, amount: float):
 # Xác thực người dùng (verify user)
 def verify_user(db: Session, user_id: int):
     try:
-        user = db.query(Users).filter(Users.user_id == user_id).first()
+        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
         if user.is_verified:
             raise HTTPException(status_code=400, detail="Người dùng đã được xác thực")
         user.is_verified = True
-        user.status = UserStatusEnum.active  # Kích hoạt người dùng khi xác thực
+        user.status = UserStatusEnum.active
         db.commit()
         db.refresh(user)
-        return UserResponse.from_orm(user)
+        return UserResponse(
+            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            rank_name=user.rank.rank_name if user.rank else None
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi xác thực người dùng: {str(e)}")

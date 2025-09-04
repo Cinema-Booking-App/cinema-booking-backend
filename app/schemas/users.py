@@ -38,11 +38,11 @@ class UserResponse(UserBase):
     is_verified: bool
     last_login: Optional[datetime] = None
     loyalty_points: int
-    rank_id: Optional[int] = None
+    rank_name: Optional[str] = None
     total_spent: float
     roles: List[RoleResponse] = []
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -58,7 +58,7 @@ class UserProfileResponse(BaseModel):
     date_of_birth: Optional[date] = None
     gender: Optional[GenderEnum] = None
     loyalty_points: int
-    rank_id: Optional[int] = None
+    rank_name: Optional[str] = None
 
     class Config:
         from_attributes = True
