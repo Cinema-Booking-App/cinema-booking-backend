@@ -5,7 +5,7 @@ from app.models.users import Users, UserStatusEnum
 from app.schemas.users import UserResponse, UserCreate, UserUpdate
 from passlib.context import CryptContext
 from app.models.ranks import Ranks  # Import mô hình Ranks
-from app.models.role import UserRole
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Lấy danh sách người dùng với phân trang và tìm kiếm
@@ -47,7 +47,6 @@ def get_user_by_id(db: Session, user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng: {str(e)}")
 
-
 # Lấy người dùng theo email
 def get_user_by_email(db: Session, email: str):
     try:
@@ -65,9 +64,8 @@ def get_user_by_email(db: Session, email: str):
 def create_user(db: Session, user_in: UserCreate):
     try:
         # Kiểm tra email đã tồn tại chưa
-        existing_user = db.query(Users).filter(Users.email == user_in.email).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email đã được sử dụng")
+        if get_user_by_email(db, user_in.email):
+            raise HTTPException(status_code=400, detail="Email đã được đăng ký")
         
         hashed_password = pwd_context.hash(user_in.password)
         user = Users(
@@ -102,8 +100,6 @@ def delete_user(db: Session, user_id: int):
         user = db.query(Users).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-        # Xóa các user_roles liên quan trước
-        db.query(UserRole).filter(UserRole.user_id == user_id).delete()
         db.delete(user)
         db.commit()
         return {"message": "Xóa người dùng thành công"}

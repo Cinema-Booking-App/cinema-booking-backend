@@ -84,7 +84,7 @@ def register(db: Session, user_in: UserRegister):
     existing_user = db.query(Users).filter(Users.email == user_in.email).first()
 
     if existing_user:
-        if existing_user.is_verified == True :
+        if existing_user.status == UserStatusEnum.active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Email đã được đăng ký"
             )
@@ -173,7 +173,7 @@ def login(db: Session, user_in: UserLogin):
             detail="Email hoặc mật khẩu không trùng khớp",
         )
 
-    if user.is_verified != True:
+    if user.status != UserStatusEnum.active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản chưa được xác minh. Vui lòng kiểm tra email để kích hoạt.",
@@ -266,7 +266,6 @@ def verify_email(db: Session, request: EmailVerificationRequest):
             )
 
         user.status = UserStatusEnum.active
-        user.is_verified = True
         verification.is_used = True
 
         db.commit()
@@ -299,7 +298,7 @@ def resend_verification_code(db: Session, email: str):
                 detail="Người dùng không tồn tại.",
             )
 
-        if user.is_verified == True:
+        if user.status == UserStatusEnum.active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Tài khoản đã được xác nhận.",
