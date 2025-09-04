@@ -28,8 +28,25 @@ class TicketsResponse(TicketsBase):
     booking_time: datetime
     status: str
     cancelled_at:  Optional[datetime] = None
+    validated_at: Optional[datetime] = None
     seat_code: str
     seat_type: str
 
     class Config:
         from_attributes = True
+
+
+class TicketQRResponse(BaseModel):
+    ticket_id: int
+    qr_token: str
+
+
+class TicketVerifyRequest(BaseModel):
+    qr_token: str
+
+
+class TicketVerifyResponse(BaseModel):
+    ticket_id: int
+    validated: bool
+    validated_at: Optional[datetime] = None
+    status: str

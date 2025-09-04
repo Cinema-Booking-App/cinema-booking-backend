@@ -47,6 +47,10 @@ def get_user_by_id(db: Session, user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi khi lấy người dùng: {str(e)}")
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> e47e4b5dc5f1dc3f23cb26292dbd8827a4548a88
 # Lấy người dùng theo email
 def get_user_by_email(db: Session, email: str):
     try:

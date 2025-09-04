@@ -6,9 +6,19 @@ from app.models.seat_templates import SeatTypeEnum
 from app.models.seats import Seats
 from app.models.showtimes import Showtimes
 from app.models.transactions import TransactionStatus, TransactionTickets, Transaction
-from app.schemas.tickets import TicketsCreate, TicketsResponse
+from app.schemas.tickets import (
+    TicketsCreate,
+    TicketsResponse,
+    TicketQRResponse,
+    TicketVerifyRequest,
+    TicketVerifyResponse,
+)
 from sqlalchemy.orm import Session
 from app.models.tickets import Tickets
+from app.core.token_utils import create_token
+from datetime import timedelta
+from jose import jwt, JWTError
+from app.core.config import settings
 # Nhân viên tạo vé trực tiếp tại quầy
 # Phần chưa hoàn thiện là chưa giải quyết trường hợp đặt nhiều vé và lưu và tổng thanh toán vẫn đang lưu từng cái 
 def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
@@ -97,3 +107,37 @@ def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+def generate_ticket_qr(db: Session, ticket_id: int) -> TicketQRResponse:
+    ticket = db.query(Tickets).filter(Tickets.ticket_id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+    if str(ticket.status) != 'confirmed':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ticket is not confirmed")
+    payload = {"ticket_id": ticket.ticket_id, "showtime_id": ticket.showtime_id, "type": "ticket_qr"}
+    token = create_token(payload, expires_delta=timedelta(hours=12), token_type="qr")
+    return TicketQRResponse(ticket_id=ticket.ticket_id, qr_token=token)
+
+
+def verify_ticket_qr(db: Session, verify_in: TicketVerifyRequest) -> TicketVerifyResponse:
+    try:
+        decoded = jwt.decode(verify_in.qr_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid QR token")
+    if decoded.get("type") != "qr" or decoded.get("ticket_id") is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid QR payload")
+    ticket_id = int(decoded["ticket_id"])
+    ticket = db.query(Tickets).filter(Tickets.ticket_id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found")
+    if str(ticket.status) != 'confirmed':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ticket is not valid for entry")
+    # Idempotent: if already validated, return current state
+    if ticket.validated_at:
+        return TicketVerifyResponse(ticket_id=ticket.ticket_id, validated=True, validated_at=ticket.validated_at, status=str(ticket.status))
+    ticket.validated_at = datetime.now()
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
+    return TicketVerifyResponse(ticket_id=ticket.ticket_id, validated=True, validated_at=ticket.validated_at, status=str(ticket.status))

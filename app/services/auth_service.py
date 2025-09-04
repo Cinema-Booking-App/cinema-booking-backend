@@ -109,8 +109,13 @@ def register(db: Session, user_in: UserRegister):
             full_name=user_in.full_name,
             email=user_in.email,
             password_hash=hashed_password,
+<<<<<<< HEAD
             status=UserStatusEnum.pending,
             rank_id=default_rank.rank_id,
+=======
+            rank_id=default_rank.rank_id,
+            is_verified=False,
+>>>>>>> e47e4b5dc5f1dc3f23cb26292dbd8827a4548a88
         )
         db.add(new_user)
         db.commit()
