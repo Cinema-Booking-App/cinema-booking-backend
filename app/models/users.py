@@ -46,5 +46,5 @@ class Users(Base):
     # Mối quan hệ: Một người dùng có thể có nhiều đặt chỗ ghế
     # seat_reservations = relationship('SeatReservation', backref='user', lazy=True)
 
-    user_roles = relationship('UserRole', back_populates='user', lazy=True)  
-    roles = relationship("Role", secondary="user_roles", back_populates="users")
+    user_roles = relationship('UserRole', back_populates='user', lazy=True, overlaps="roles")  
+    roles = relationship("Role", secondary="user_roles", back_populates="users", overlaps="user_roles")
