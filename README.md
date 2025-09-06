@@ -1,5 +1,4 @@
 # Hướng dẫn cài đặt môi trường
-
 Các bước thực hiện:
 - **Tạo môi trường ảo:
 ```bash
