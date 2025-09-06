@@ -23,7 +23,7 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 10, search_query: Opt
         # Ánh xạ rank_name vào response
         user_responses = [
             UserResponse(
-                **UserResponse.from_orm(u).dict(exclude={'rank'}),
+                **UserResponse.from_orm(u).dict(exclude={'rank', 'rank_name'}),
                 rank_name=u.rank.rank_name if u.rank else None
             ) for u in users
         ]
@@ -40,7 +40,7 @@ def get_user_by_id(db: Session, user_id: int):
         user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if user:
             return UserResponse(
-                **UserResponse.from_orm(user).dict(exclude={'rank'}),
+                **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
                 rank_name=user.rank.rank_name if user.rank else None
             )
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
@@ -53,7 +53,7 @@ def get_user_by_email(db: Session, email: str):
         user = db.query(Users).options(joinedload(Users.rank)).filter(Users.email == email).first()
         if user:
             return UserResponse(
-                **UserResponse.from_orm(user).dict(exclude={'rank'}),
+                **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
                 rank_name=user.rank.rank_name if user.rank else None
             )
         raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
@@ -87,7 +87,7 @@ def create_user(db: Session, user_in: UserCreate):
         db.commit()
         db.refresh(user)
         return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
             rank_name=user.rank.rank_name if user.rank else None
         )
     except Exception as e:
@@ -119,7 +119,7 @@ def update_user(db: Session, user_id: int, user_in: UserUpdate):
         db.commit()
         db.refresh(user)
         return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
             rank_name=user.rank.rank_name if user.rank else None
         )
     except Exception as e:
@@ -136,7 +136,7 @@ def update_user_status(db: Session, user_id: int, status: UserStatusEnum):
         db.commit()
         db.refresh(user)
         return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
             rank_name=user.rank.rank_name if user.rank else None
         )
     except Exception as e:
@@ -169,7 +169,7 @@ def update_loyalty_points(db: Session, user_id: int, points: int):
         db.commit()
         db.refresh(user)
         return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
             rank_name=user.rank.rank_name if user.rank else None
         )
     except Exception as e:
@@ -192,29 +192,9 @@ def update_total_spent(db: Session, user_id: int, amount: float):
         db.commit()
         db.refresh(user)
         return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
+            **UserResponse.from_orm(user).dict(exclude={'rank', 'rank_name'}),
             rank_name=user.rank.rank_name if user.rank else None
         )
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật tổng chi tiêu: {str(e)}")
-
-# Xác thực người dùng (verify user)
-def verify_user(db: Session, user_id: int):
-    try:
-        user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
-        if not user:
-            raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-        if user.is_verified:
-            raise HTTPException(status_code=400, detail="Người dùng đã được xác thực")
-        user.is_verified = True
-        user.status = UserStatusEnum.active
-        db.commit()
-        db.refresh(user)
-        return UserResponse(
-            **UserResponse.from_orm(user).dict(exclude={'rank'}),
-            rank_name=user.rank.rank_name if user.rank else None
-        )
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Lỗi khi xác thực người dùng: {str(e)}")
