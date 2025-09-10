@@ -179,10 +179,12 @@ def update_loyalty_points(db: Session, user_id: int, points: int):
 # Cập nhật tổng chi tiêu (total_spent) và tự động cập nhật rank
 def update_total_spent(db: Session, user_id: int, amount: float):
     try:
+        if amount < 0:
+            raise HTTPException(status_code=400, detail="Số tiền giao dịch không được âm")
         user = db.query(Users).options(joinedload(Users.rank)).filter(Users.user_id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="Không tìm thấy người dùng")
-        user.total_spent = amount
+        user.total_spent += amount
         if user.total_spent < 0:
             user.total_spent = 0
         
