@@ -47,8 +47,3 @@ def update_loyalty_points_endpoint(user_id: int, points: int, db: Session = Depe
 @router.put("/users/{user_id}/total-spent")
 def update_total_spent_endpoint(user_id: int, amount: float, db: Session = Depends(get_db)):
     return success_response(update_total_spent(db, user_id, amount))
-
-# Xác thực người dùng
-@router.put("/users/{user_id}/verify")
-def verify_user_endpoint(user_id: int, db: Session = Depends(get_db)):
-    return success_response(verify_user(db, user_id))

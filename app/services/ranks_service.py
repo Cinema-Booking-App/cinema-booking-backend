@@ -18,7 +18,7 @@ def get_all_ranks(db: Session, skip: int = 0, limit: int = 10, search_query: str
 def get_rank_by_id(db: Session, rank_id: int):
     rank = db.query(Ranks).filter(Ranks.rank_id == rank_id).first()
     if not rank:
-        raise HTTPException(status_code=404, detail="Xếp hạng không tìm thấy")
+        raise HTTPException(status_code=404, detail="Không tìm thấy xếp hạng")
     return RankResponse.from_orm(rank)
 
 # Tạo rank mới
@@ -27,7 +27,7 @@ def create_rank(db: Session, rank_data: RankCreate):
     if rank_data.is_default is None:
         raise HTTPException(status_code=400, detail="is_default phải được cung cấp (true or false)")
     if db.query(Ranks).filter(Ranks.rank_name == rank_data.rank_name).first():
-        raise HTTPException(status_code=400, detail="Tên xếp hạng đã tồn tại")
+        raise HTTPException(status_code=400, detail="Tên xếp hạng đã từng tồn tại")
     
     rank = Ranks(
         rank_name=rank_data.rank_name,
@@ -45,7 +45,7 @@ def create_rank(db: Session, rank_data: RankCreate):
 def update_rank(db: Session, rank_id: int, rank_data: RankUpdate):
     rank = db.query(Ranks).filter(Ranks.rank_id == rank_id).first()
     if not rank:
-        raise HTTPException(status_code=404, detail="Xếp hạng không tìm thấy")
+        raise HTTPException(status_code=404, detail="Không tìm thấy xếp hạng")
     
     # Cập nhật các trường nếu có
     if rank_data.rank_name is not None:
@@ -67,7 +67,7 @@ def update_rank(db: Session, rank_id: int, rank_data: RankUpdate):
 def delete_rank(db: Session, rank_id: int):
     rank = db.query(Ranks).filter(Ranks.rank_id == rank_id).first()
     if not rank:
-        raise HTTPException(status_code=404, detail="Xếp hạng không tìm thấy")
+        raise HTTPException(status_code=404, detail="Xếp hạng không tồn tại")
     
     db.delete(rank)
     db.commit()
