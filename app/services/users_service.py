@@ -199,4 +199,4 @@ def update_total_spent(db: Session, user_id: int, amount: float):
         )
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật tổng chi tiêu: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Lỗi khi cập nhật tổng tiền: {str(e)}")
