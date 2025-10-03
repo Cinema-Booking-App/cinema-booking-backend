@@ -99,17 +99,17 @@ def register(db: Session, user_in: UserRegister):
         hashed_password = pwd_context.hash(user_in.password)
 
         # Lấy rank mặc định (ví dụ Bronze)
-        default_rank = db.query(Ranks).filter(Ranks.is_default == True).first()
-        if not default_rank:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Không tìm thấy rank mặc định trong hệ thống.",
-            )
+        # default_rank = db.query(Ranks).filter(Ranks.is_default == True).first()
+        # if not default_rank:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        #         detail="Không tìm thấy rank mặc định trong hệ thống.",
+        #     )
         new_user = Users(
             full_name=user_in.full_name,
             email=user_in.email,
             password_hash=hashed_password,
-            rank_id=default_rank.rank_id,
+            # rank_id=default_rank.rank_id,
             is_verified=False,
         )
         db.add(new_user)
@@ -173,7 +173,7 @@ def login(db: Session, user_in: UserLogin):
             detail="Email hoặc mật khẩu không trùng khớp",
         )
 
-    if user.status != UserStatusEnum.active:
+    if user.is_verified == False:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tài khoản chưa được xác minh. Vui lòng kiểm tra email để kích hoạt.",
@@ -266,6 +266,7 @@ def verify_email(db: Session, request: EmailVerificationRequest):
             )
 
         user.status = UserStatusEnum.active
+        user.is_verified = True
         verification.is_used = True
 
         db.commit()
