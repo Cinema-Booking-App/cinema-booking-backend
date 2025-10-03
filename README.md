@@ -1,5 +1,4 @@
 # Hướng dẫn cài đặt môi trường
-
 Các bước thực hiện:
 - **Tạo môi trường ảo:
 ```bash
@@ -15,5 +14,5 @@ pip install -r requirements.txt
 ```
 - **Chạy chương trình:
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```

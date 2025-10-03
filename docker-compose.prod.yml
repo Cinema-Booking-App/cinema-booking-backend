@@ -1,0 +1,50 @@
+
+services:
+  fastapi-app:
+    image: truongdev1510/fastapi-app:latest
+    container_name: fastapi-app-prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://myuser:mypassword@postgres:5432/mydatabase
+      - ENVIRONMENT=production
+      - SECRET_KEY=your-super-secret-key-here
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-prod
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mydatabase
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
