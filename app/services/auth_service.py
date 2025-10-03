@@ -151,10 +151,6 @@ def register(db: Session, user_in: UserRegister):
         return {
             "message": "Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.",
             "email": user_in.email,
-            "user": UserResponse(
-                **UserResponse.from_orm(new_user).dict(exclude={'rank', 'rank_name'}),
-                rank_name=new_user.rank.rank_name if new_user.rank else None
-            )  # Chỉ sử dụng from_orm
         }
     except Exception as e:
         db.rollback()
