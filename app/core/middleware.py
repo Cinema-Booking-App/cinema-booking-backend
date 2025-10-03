@@ -5,7 +5,8 @@ def setup_middleware(app: FastAPI):
     # CORS chỉ định rõ domain frontend
     allow_origins = [
         "https://ryon.website",
-        "https://www.ryon.website"
+        "https://www.ryon.website",
+        "http://localhost:3000",
     ]
     
     app.add_middleware(
