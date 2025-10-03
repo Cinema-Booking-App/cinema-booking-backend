@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vé Xem Phim Của Bạn</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- qrcode.js CDN for QR code generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .ticket-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 2px dashed #e5e7eb; /* Đường đứt nét */
+        }
+        .ticket-header {
+            background-color: #1a202c; /* Màu nền đậm */
+            color: #ffffff;
+            padding: 24px;
+            text-align: center;
+            border-top-left-radius: 14px;
+            border-top-right-radius: 14px;
+        }
+        .ticket-body {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .ticket-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .ticket-section:last-child {
+            border-bottom: none;
+        }
+        .ticket-label {
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+        .ticket-value {
+            font-weight: 700;
+            color: #2d3748;
+            font-size: 1rem;
+            text-align: right;
+        }
+        .ticket-qr-code {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            background-color: #f7fafc;
+            border-bottom-left-radius: 14px;
+            border-bottom-right-radius: 14px;
+        }
+        /* Style for the QR code canvas */
+        #qrcode {
+            width: 120px;
+            height: 120px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            background-color: white; /* Ensure white background for QR code */
+            padding: 5px; /* Small padding around QR code */
+        }
+        .print-button-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .print-button {
+            background-color: #4CAF50; /* Màu xanh lá */
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .print-button:hover {
+            background-color: #45a049;
+        }
+
+        /* Ẩn nút in khi in */
+        @media print {
+            .print-button-container {
+                display: none;
+            }
+            body {
+                background-color: #ffffff;
+                margin: 0;
+                padding: 0;
+            }
+            .ticket-container {
+                box-shadow: none;
+                border: none;
+                max-width: none;
+                width: 100%;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket-wrapper">
+        <div class="ticket-container">
+            <div class="ticket-header">
+                <h1 class="text-2xl font-bold mb-2">Vé Xem Phim</h1>
+                <p class="text-sm">Cảm ơn bạn đã đặt vé!</p>
+            </div>
+            <div class="ticket-body">
+                <div class="ticket-section">
+                    <span class="ticket-label">Phim:</span>
+                    <span class="ticket-value" id="movie-title">Tên Phim Cực Hay</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Suất chiếu:</span>
+                    <span class="ticket-value" id="showtime-details">20:00 - 22:00, 26/07/2025</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Rạp:</span>
+                    <span class="ticket-value" id="theater-name">CGV Vincom Center</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Phòng:</span>
+                    <span class="ticket-value" id="room-name">Phòng 5</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Ghế:</span>
+                    <span class="ticket-value" id="seat-details">A1, A2 (VIP)</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Giá vé:</span>
+                    <span class="ticket-value" id="ticket-price">150.000 VND</span>
+                </div>
+                <div class="ticket-section">
+                    <span class="ticket-label">Mã đặt vé:</span>
+                    <span class="ticket-value" id="booking-id">#BOOKING12345</span>
+                </div>
+            </div>
+            <div class="ticket-qr-code">
+                <!-- Canvas element for QR Code -->
+                <div id="qrcode"></div>
+                <p class="text-gray-600 text-sm">Quét mã này để vào cửa</p>
+            </div>
+        </div>
+        <div class="print-button-container">
+            <button class="print-button" onclick="window.print()">
+                In Vé
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Function to generate QR code
+        function generateQRCode() {
+            // Get the booking ID from the element
+            const bookingId = document.getElementById('booking-id').innerText;
+            
+            // Check if the qrcode div exists
+            const qrcodeDiv = document.getElementById('qrcode');
+            if (qrcodeDiv) {
+                // Clear any existing QR code
+                qrcodeDiv.innerHTML = ''; 
+
+                // Create QR code instance
+                new QRCode(qrcodeDiv, {
+                    text: bookingId,
+                    width: 120,
+                    height: 120,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            } else {
+                console.error("QR code div not found!");
+            }
+        }
+
+        // Function to update ticket data dynamically
+        function updateTicketData(data) {
+            document.getElementById('movie-title').innerText = data.movieTitle;
+            document.getElementById('showtime-details').innerText = data.showtime;
+            document.getElementById('theater-name').innerText = data.theaterName;
+            document.getElementById('room-name').innerText = data.roomName;
+            document.getElementById('seat-details').innerText = data.seatDetails;
+            document.getElementById('ticket-price').innerText = data.ticketPrice;
+            document.getElementById('booking-id').innerText = data.bookingId;
+            generateQRCode(); // Regenerate QR code with new booking ID
+        }
+
+        // Generate QR code and update data when the window loads
+        window.onload = function() {
+            const sampleData = {
+                movieTitle: "Phim Hành Động Mới Nhất",
+                showtime: "19:30 - 21:30, 27/07/2025",
+                theaterName: "Lotte Cinema Gò Vấp",
+                roomName: "Phòng 3",
+                seatDetails: "B5, B6 (Regular)",
+                ticketPrice: "200.000 VND",
+                bookingId: "#NEWBOOKING67890"
+            };
+            updateTicketData(sampleData);
+        };
+    </script>
+</body>
+</html>
