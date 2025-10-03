@@ -89,7 +89,6 @@ def register(db: Session, user_in: UserRegister):
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Email đã được đăng ký"
             )
         else:
-            # Nếu user đã tồn tại nhưng chưa active, hướng dẫn họ gửi lại mã
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Tài khoản đã tồn tại nhưng chưa được kích hoạt. Vui lòng kiểm tra email hoặc yêu cầu gửi lại mã.",
@@ -116,6 +115,8 @@ def register(db: Session, user_in: UserRegister):
         db.commit()
         db.refresh(new_user)
 
+        print(f"New user rank_id after commit: {new_user.rank_id}")
+
         # Tạo mã xác nhận và gửi email
         verification_code = email_service.generate_verification_code()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -127,8 +128,7 @@ def register(db: Session, user_in: UserRegister):
         )
         db.add(verification)
 
-        # Thêm logic gán role mặc định cho người dùng mới
-        # Tìm role 'user' trong database. Nếu không tồn tại thì raise lỗi
+        # Gán role mặc định
         default_role = db.query(Role).filter(Role.role_name == "user").first()
         if not default_role:
             raise HTTPException(
@@ -136,13 +136,12 @@ def register(db: Session, user_in: UserRegister):
                 detail="Vai trò mặc định 'user' không tồn tại trong hệ thống.",
             )
 
-        # Tạo bản ghi UserRole để gán vai trò cho người dùng
         new_user_role = UserRole(user_id=new_user.user_id, role_id=default_role.role_id)
         db.add(new_user_role)
 
         db.commit()
 
-        # Sau khi commit, gửi email
+        # Gửi email xác nhận
         if not email_service.send_verification_email(user_in.email, verification_code):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -152,6 +151,10 @@ def register(db: Session, user_in: UserRegister):
         return {
             "message": "Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.",
             "email": user_in.email,
+            "user": UserResponse(
+                **UserResponse.from_orm(new_user).dict(exclude={'rank', 'rank_name'}),
+                rank_name=new_user.rank.rank_name if new_user.rank else None
+            )  # Chỉ sử dụng from_orm
         }
     except Exception as e:
         db.rollback()
