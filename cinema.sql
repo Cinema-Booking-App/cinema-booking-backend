@@ -208,8 +208,10 @@ CREATE TABLE rooms (
     "room_id" SERIAL PRIMARY KEY,
     "theater_id" INTEGER NOT NULL,
     "room_name" VARCHAR(50) NOT NULL,
+    "room_status" VARCHAR(50) NOT NULL DEFAULT 'active', -- active, inactive, maintenance
     "layout_id" INTEGER,
-    "created_at" TIMESTAMP
+    "created_at" TIMESTAMP,
+    "updated_at" TIMESTAMP
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         UNIQUE ("theater_id", "room_name") -- Mỗi rạp có phòng tên duy nhất
@@ -236,6 +238,7 @@ CREATE TABLE showtimes (
     "showtime_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "room_id" INTEGER NOT NULL,
+    "theater_id " INTEGER NOT NULL,
     "show_datetime" TIMESTAMP
     WITH
         TIME ZONE NOT NULL,
