@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Seat Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .connected { background: #d4edda; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .messages {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #007bff;
+            background: white;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Seat Reservation Test</h1>
+    
+    <div id="status" class="status disconnected">
+        Status: Disconnected
+    </div>
+
+    <div>
+        <label>Showtime ID:</label>
+        <input type="number" id="showtimeId" value="1" min="1">
+        
+        <label>Session ID:</label>
+        <input type="text" id="sessionId" value="" placeholder="Auto-generated">
+        
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div>
+        <h3>Test Actions:</h3>
+        <label>Seat ID:</label>
+        <input type="number" id="seatId" value="1" min="1">
+        
+        <button onclick="reserveSeat()">Reserve Seat</button>
+        <button onclick="cancelReservation()">Cancel Reservation</button>
+        <button onclick="sendPing()">Send Ping</button>
+    </div>
+
+    <div>
+        <h3>Messages:</h3>
+        <div id="messages" class="messages"></div>
+        <button onclick="clearMessages()">Clear Messages</button>
+    </div>
+
+    <script>
+        let ws = null;
+        let sessionId = generateSessionId();
+        document.getElementById('sessionId').value = sessionId;
+
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function connect() {
+            const showtimeId = document.getElementById('showtimeId').value;
+            sessionId = document.getElementById('sessionId').value || generateSessionId();
+            
+            if (ws) {
+                ws.close();
+            }
+
+            const wsUrl = `ws://localhost:8000/api/v1/ws/seats/${showtimeId}?session_id=${sessionId}`;
+            addMessage(`Connecting to: ${wsUrl}`, 'info');
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function(event) {
+                updateStatus(true);
+                addMessage('Connected to WebSocket', 'success');
+            };
+
+            ws.onclose = function(event) {
+                updateStatus(false);
+                addMessage(`Connection closed: ${event.code} - ${event.reason}`, 'warning');
+            };
+
+            ws.onerror = function(error) {
+                addMessage(`WebSocket error: ${error}`, 'error');
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    addMessage(`Received: ${JSON.stringify(message, null, 2)}`, 'received');
+                } catch (e) {
+                    addMessage(`Received (raw): ${event.data}`, 'received');
+                }
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, 'Manual disconnect');
+                ws = null;
+            }
+        }
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            if (connected) {
+                statusEl.className = 'status connected';
+                statusEl.textContent = 'Status: Connected';
+            } else {
+                statusEl.className = 'status disconnected';
+                statusEl.textContent = 'Status: Disconnected';
+            }
+        }
+
+        function sendMessage(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+                addMessage(`Sent: ${JSON.stringify(message, null, 2)}`, 'sent');
+            } else {
+                addMessage('WebSocket is not connected', 'error');
+            }
+        }
+
+        function reserveSeat() {
+            const showtimeId = document.getElementById('showtimeId').value;
+            const seatId = document.getElementById('seatId').value;
+            
+            // This would normally be done via HTTP API, but we can simulate the message
+            addMessage(`Simulating seat reservation for seat ${seatId}...`, 'info');
+            
+            // Make HTTP request to reserve seat
+            fetch('http://localhost:8000/api/v1/reservations/multiple', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify([{
+                    seat_id: parseInt(seatId),
+                    showtime_id: parseInt(showtimeId),
+                    session_id: sessionId,
+                    status: 'pending'
+                }])
+            })
+            .then(response => response.json())
+            .then(data => {
+                addMessage(`Reservation API Response: ${JSON.stringify(data, null, 2)}`, 'success');
+            })
+            .catch(error => {
+                addMessage(`Reservation API Error: ${error}`, 'error');
+            });
+        }
+
+        function cancelReservation() {
+            const showtimeId = document.getElementById('showtimeId').value;
+            const seatId = document.getElementById('seatId').value;
+            
+            addMessage(`Cancelling reservation for seat ${seatId}...`, 'info');
+            
+            fetch(`http://localhost:8000/api/v1/reservations/${showtimeId}?seat_ids=${seatId}&session_id=${sessionId}`, {
+                method: 'DELETE',
+            })
+            .then(response => response.json())
+            .then(data => {
+                addMessage(`Cancel API Response: ${JSON.stringify(data, null, 2)}`, 'success');
+            })
+            .catch(error => {
+                addMessage(`Cancel API Error: ${error}`, 'error');
+            });
+        }
+
+        function sendPing() {
+            sendMessage({ type: 'ping' });
+        }
+
+        function addMessage(text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageDiv.innerHTML = `<strong>[${timestamp}]</strong> ${text}`;
+            
+            // Color coding
+            switch(type) {
+                case 'success':
+                    messageDiv.style.borderLeftColor = '#28a745';
+                    break;
+                case 'error':
+                    messageDiv.style.borderLeftColor = '#dc3545';
+                    break;
+                case 'warning':
+                    messageDiv.style.borderLeftColor = '#ffc107';
+                    break;
+                case 'info':
+                    messageDiv.style.borderLeftColor = '#17a2b8';
+                    break;
+                case 'sent':
+                    messageDiv.style.borderLeftColor = '#6f42c1';
+                    break;
+                case 'received':
+                    messageDiv.style.borderLeftColor = '#20c997';
+                    break;
+            }
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        // Auto-connect on page load
+        // connect();
+    </script>
+</body>
+</html>
