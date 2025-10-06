@@ -39,7 +39,7 @@ def detail_movie(movie_id: int, db: Session = Depends(get_db)):
 def add_movie(
     movie_in: MovieCreate,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return success_response(create_movie(db, movie_in))
 
@@ -49,7 +49,7 @@ def add_movie(
 def remove_movie(
     movie_id: int,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return success_response(delete_movie(db, movie_id))
 
@@ -60,6 +60,6 @@ def edit_movie(
     movie_id: int,
     movie_in: MovieUpdate,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return success_response(update_movie(db, movie_id, movie_in))
