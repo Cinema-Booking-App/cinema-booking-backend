@@ -18,8 +18,16 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo "🚧 Building Docker image..."
-                    sh 'docker build -t $REGISTRY/${DOCKER_USER}/$IMAGE_NAME:latest .'
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-cred',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        echo "🚧 Building Docker image..."
+                        sh '''
+                            docker build -t $REGISTRY/$DOCKER_USER/$IMAGE_NAME:latest .
+                        '''
+                    }
                 }
             }
         }
