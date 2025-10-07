@@ -75,19 +75,20 @@ def create_reserved_seats(reservation_in : SeatReservationsCreate , db : Session
         db.commit()
         db.refresh(db_reservation) 
 
-        # Send WebSocket notification (non-blocking)
+        # Gửi thông báo WebSocket realtime (không chặn luong chính)
         try:
             from app.core.websocket_manager import websocket_manager
+            # Tạo task bất đồng bộ để thông báo ghế đã được đặt
             asyncio.create_task(
                 websocket_manager.send_seat_reserved(
-                    showtime_id=reservation_in.showtime_id,
-                    seat_ids=[reservation_in.seat_id],
-                    user_session=reservation_in.session_id or ""
+                    showtime_id=reservation_in.showtime_id,  # Suất chiếu
+                    seat_ids=[reservation_in.seat_id],       # Danh sách ghế được đặt
+                    user_session=reservation_in.session_id or ""  # Session người đặt
                 )
             )
         except Exception as ws_error:
-            # Don't fail the reservation if WebSocket fails
-            print(f"WebSocket notification failed: {ws_error}")
+            # Không làm thất bại việc đặt ghế nếu WebSocket gặp lỗi
+            print(f"Thông báo WebSocket thất bại: {ws_error}")
 
         return SeatReservationsResponse.from_orm(db_reservation)
     except Exception as e :
@@ -155,16 +156,17 @@ async def create_multiple_reserved_seats(reservations_in: List[SeatReservationsC
             
         db.commit()
         
-        # Send WebSocket notification for all seats
+        # Gửi thông báo WebSocket cho tất cả ghế được đặt cùng lúc
         try:
             from app.core.websocket_manager import websocket_manager
+            # Thông báo realtime đến tất cả client đang xem suất chiếu này
             await websocket_manager.send_seat_reserved(
-                showtime_id=showtime_id,
-                seat_ids=seat_ids,
-                user_session=user_session
+                showtime_id=showtime_id,    # Suất chiếu
+                seat_ids=seat_ids,          # Danh sách tất cả ghế vừa được đặt
+                user_session=user_session   # Session người đặt
             )
         except Exception as ws_error:
-            print(f"WebSocket notification failed: {ws_error}")
+            print(f"Thông báo WebSocket đặt nhiều ghế thất bại: {ws_error}")
         
         # Refresh and return all created reservations
         for reservation in created_reservations:
@@ -196,15 +198,16 @@ async def cancel_seat_reservations(showtime_id: int, seat_ids: List[int], sessio
         
         db.commit()
         
-        # Send WebSocket notification
+        # Gửi thông báo WebSocket về việc giải phóng ghế
         try:
             from app.core.websocket_manager import websocket_manager
+            # Thông báo realtime rằng các ghế đã được giải phóng (có thể đặt lại)
             await websocket_manager.send_seat_released(
-                showtime_id=showtime_id,
-                seat_ids=cancelled_seat_ids
+                showtime_id=showtime_id,      # Suất chiếu
+                seat_ids=cancelled_seat_ids   # Danh sách ghế được giải phóng
             )
         except Exception as ws_error:
-            print(f"WebSocket notification failed: {ws_error}")
+            print(f"Thông báo WebSocket giải phóng ghế thất bại: {ws_error}")
         
         return {"cancelled_seats": cancelled_seat_ids}
         
@@ -221,27 +224,29 @@ async def delete_expired_reservations(db: Session):
             SeatReservations.expires_at < current_time
         ).all()
 
-        # Group by showtime for efficient WebSocket notifications
+        # Nhóm các ghế theo suất chiếu để gửi thông báo WebSocket hiệu quả
         showtime_seat_map = {}
         for reservation in expired_reservations:
             showtime_id = reservation.showtime_id
+            # Tạo map: showtime_id -> danh sách seat_id hết hạn
             if showtime_id not in showtime_seat_map:
                 showtime_seat_map[showtime_id] = []
             showtime_seat_map[showtime_id].append(reservation.seat_id)
-            db.delete(reservation)
+            db.delete(reservation)  # Xóa reservation hết hạn
 
         db.commit()
         
-        # Send WebSocket notifications for released seats
+        # Gửi thông báo WebSocket cho các ghế được giải phóng do hết hạn
         try:
             from app.core.websocket_manager import websocket_manager
+            # Gửi thông báo cho từng suất chiếu
             for showtime_id, seat_ids in showtime_seat_map.items():
                 await websocket_manager.send_seat_released(
-                    showtime_id=showtime_id,
-                    seat_ids=seat_ids
+                    showtime_id=showtime_id,  # Suất chiếu
+                    seat_ids=seat_ids         # Danh sách ghế hết hạn được giải phóng
                 )
         except Exception as ws_error:
-            print(f"WebSocket notification failed: {ws_error}")
+            print(f"Thông báo WebSocket ghế hết hạn thất bại: {ws_error}")
             
         return len(expired_reservations)
         
