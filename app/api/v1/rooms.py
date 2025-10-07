@@ -41,7 +41,7 @@ def add_room_to_theater(
     theater_id: int,
     room_in: RoomCreate,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     room = create_room_to_theater(db, theater_id, room_in)
     return success_response(room)
@@ -59,7 +59,7 @@ def update_room(
     room_id: int,
     room_in: RoomCreate,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     updated_room = update_room(db, room_id, room_in)
     return success_response(updated_room)
