@@ -8,7 +8,14 @@ class Settings(BaseSettings):
     ALGORITHM: str  = "HS256"
     EMAIL_USERNAME: str = ""
     EMAIL_PASSWORD: str = ""
-    CORS_ALLOW_ORIGINS: str = ""  # Comma-separated list of origins
+    CORS_ALLOW_ORIGINS: str = ""
+    # VNPay Configuration
+    VNPAY_TMN_CODE: str = ""
+    VNPAY_HASH_SECRET: str = ""
+    VNPAY_API_URL: str = ""
+    VNPAY_IPN_URL: str = ""
+    VNPAY_RETURN_URL: str = ""
+    VNPAY_ENDPOINT: str = ""
     class Config:
         env_file = ".env"
 

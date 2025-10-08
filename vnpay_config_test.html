@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNPay Debug Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .alert-error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+        }
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .log-error { background: rgba(255, 0, 0, 0.1); color: #ff6b6b; }
+        .log-success { background: rgba(0, 255, 0, 0.1); color: #51cf66; }
+        .log-info { background: rgba(0, 123, 255, 0.1); color: #74c0fc; }
+        .log-warning { background: rgba(255, 193, 7, 0.1); color: #ffd43b; }
+        pre {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .card.selected {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+        .card-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .card-code {
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 VNPay Debug & Fix Tool</h1>
+            <p>Công cụ kiểm tra và sửa lỗi tích hợp VNPay</p>
+        </div>
+
+        <div class="content">
+            <!-- Current Error -->
+            <div class="section">
+                <h3>🚨 Lỗi hiện tại</h3>
+                <div class="alert alert-error">
+                    <strong>Thông báo:</strong> "Ngân hàng thanh toán không được hỗ trợ"<br>
+                    <strong>Mã tra cứu:</strong> UPPqqzIu5y
+                </div>
+            </div>
+
+            <!-- API Configuration -->
+            <div class="section">
+                <h3>⚙️ Cấu hình API</h3>
+                <div class="input-group">
+                    <label>API Endpoint</label>
+                    <input type="text" id="apiEndpoint" value="http://127.0.0.1:8000/api/v1/payments/create" placeholder="http://your-api.com/api/v1/payments/create">
+                </div>
+            </div>
+
+            <!-- Diagnosis -->
+            <div class="section">
+                <h3>🔍 Chẩn đoán vấn đề</h3>
+                <div class="alert alert-warning">
+                    <strong>Các nguyên nhân có thể:</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>✓ Bank code gửi lên có khoảng trắng hoặc ký tự đặc biệt</li>
+                        <li>✓ Bank code không match với danh sách SUPPORTED_BANKS</li>
+                        <li>✓ Backend đang validate bank_code quá strict</li>
+                        <li>✓ Conflict giữa 2 models khác nhau</li>
+                        <li>✓ Request payload không đúng format</li>
+                    </ul>
+                </div>
+                <button class="btn btn-primary" onclick="runDiagnosis()">🔍 Chạy chẩn đoán</button>
+            </div>
+
+            <!-- Bank Selection -->
+            <div class="section">
+                <h3>🏦 Chọn ngân hàng test</h3>
+                <div class="grid" id="bankGrid"></div>
+                <div class="alert alert-info" style="margin-top: 15px;">
+                    Đã chọn: <strong id="selectedBankName">Tất cả ngân hàng</strong>
+                    <span id="selectedBankCode" style="font-family: monospace;"></span>
+                </div>
+            </div>
+
+            <!-- Test Payment -->
+            <div class="section">
+                <h3>🧪 Test thanh toán</h3>
+                <div class="input-group">
+                    <label>Số tiền (VND)</label>
+                    <input type="number" id="amount" value="10000" min="1000">
+                </div>
+                <div class="input-group">
+                    <label>Order ID</label>
+                    <input type="text" id="orderId" value="" placeholder="Tự động tạo nếu để trống">
+                </div>
+                <div class="input-group">
+                    <label>Mô tả</label>
+                    <input type="text" id="orderInfo" value="Test payment from debug tool">
+                </div>
+                <button class="btn btn-primary" onclick="testPayment(false)" id="testBtn">🚀 Test thanh toán</button>
+                <button class="btn btn-primary" onclick="testPayment(true)" id="testBankBtn">🏦 Test với bank đã chọn</button>
+                <button class="btn btn-secondary" onclick="testWithEmptyBank()">📝 Test với bank_code = ""</button>
+                <button class="btn btn-danger" onclick="clearLogs()">🗑️ Xóa logs</button>
+            </div>
+
+            <!-- Logs -->
+            <div class="section">
+                <h3>📋 Logs</h3>
+                <div class="log-container" id="logContainer"></div>
+            </div>
+
+            <!-- Solutions -->
+            <div class="section">
+                <h3>💡 Giải pháp đề xuất</h3>
+                <div class="alert alert-success">
+                    <strong>Fix code trong payment_service.py:</strong>
+                    <pre>def create_payment_url(self, request: Dict, return_url: str) -> PaymentResponse:
+    try:
+        # QUAN TRỌNG: Strip whitespace và uppercase
+        bank_code = request.get("bank_code", "").strip().upper()
+        
+        # Chỉ validate nếu bank_code KHÔNG RỖNG
+        if bank_code and bank_code not in self.SUPPORTED_BANKS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Bank code không hợp lệ: {bank_code}"
+            )
+        
+        params = {
+            # ... other params
+        }
+        
+        # Chỉ thêm bank_code nếu có giá trị
+        if bank_code:
+            params["vnp_BankCode"] = bank_code
+        
+        # ... rest of code</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const banks = {
+            "": "Tất cả ngân hàng",
+            "VNPAYQR": "VNPay QR",
+            "NCB": "NCB Bank (Test)",
+            "VNBANK": "VietinBank",
+            "VIETCOMBANK": "Vietcombank",
+            "BIDV": "BIDV",
+            "TECHCOMBANK": "Techcombank",
+            "SACOMBANK": "Sacombank",
+            "AGRIBANK": "Agribank",
+            "MBBANK": "MB Bank",
+            "TPBANK": "TPBank",
+            "VPBANK": "VPBank",
+            "ACB": "ACB",
+            "HDBANK": "HDBank"
+        };
+
+        let selectedBank = "";
+
+        function initBankGrid() {
+            const grid = document.getElementById('bankGrid');
+            Object.entries(banks).forEach(([code, name]) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                if (code === "") card.classList.add('selected');
+                card.innerHTML = `
+                    <div class="card-title">${name}</div>
+                    <div class="card-code">${code || '(empty)'}</div>
+                `;
+                card.onclick = () => selectBank(code, name, card);
+                grid.appendChild(card);
+            });
+        }
+
+        function selectBank(code, name, element) {
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedBank = code;
+            document.getElementById('selectedBankName').textContent = name;
+            document.getElementById('selectedBankCode').textContent = code ? `(${code})` : '';
+            log(`✓ Đã chọn: ${name} ${code ? '(' + code + ')' : ''}`, 'info');
+        }
+
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<strong>[${time}]</strong> ${message}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('✓ Đã xóa logs', 'info');
+        }
+
+        async function runDiagnosis() {
+            log('🔍 Bắt đầu chẩn đoán...', 'info');
+            
+            log('1️⃣ Kiểm tra danh sách banks trong code', 'info');
+            log(`   → Có ${Object.keys(banks).length} banks được định nghĩa`, 'success');
+            
+            log('2️⃣ Kiểm tra API endpoint', 'info');
+            const endpoint = document.getElementById('apiEndpoint').value;
+            log(`   → Endpoint: ${endpoint}`, 'info');
+            
+            log('3️⃣ Kiểm tra bank code hiện tại', 'info');
+            log(`   → Selected: "${selectedBank}" (length: ${selectedBank.length})`, selectedBank.trim() ? 'success' : 'warning');
+            
+            log('4️⃣ Test với bank_code rỗng', 'info');
+            setTimeout(() => testWithEmptyBank(), 1000);
+        }
+
+        async function testWithEmptyBank() {
+            log('📝 Testing với bank_code = "" (rỗng)', 'warning');
+            await makeRequest({
+                amount: parseInt(document.getElementById('amount').value) * 100,
+                order_id: `TEST_EMPTY_${Date.now()}`,
+                order_info: "Test with empty bank code",
+                locale: "vn",
+                bank_code: ""
+            });
+        }
+
+        async function testPayment(useSelectedBank) {
+            const amount = parseInt(document.getElementById('amount').value);
+            const orderId = document.getElementById('orderId').value || `ORDER_${Date.now()}`;
+            const orderInfo = document.getElementById('orderInfo').value;
+
+            const payload = {
+                amount: amount * 100,
+                order_id: orderId,
+                order_info: orderInfo,
+                locale: "vn"
+            };
+
+            if (useSelectedBank && selectedBank) {
+                payload.bank_code = selectedBank;
+                log(`🏦 Sử dụng bank code: "${selectedBank}"`, 'info');
+            } else {
+                log('📝 Không chỉ định bank code (để VNPay hiện danh sách)', 'info');
+            }
+
+            await makeRequest(payload);
+        }
+
+        async function makeRequest(payload) {
+            const endpoint = document.getElementById('apiEndpoint').value;
+            const testBtn = document.getElementById('testBtn');
+            const testBankBtn = document.getElementById('testBankBtn');
+            
+            testBtn.disabled = true;
+            testBankBtn.disabled = true;
+
+            log('📤 Gửi request...', 'info');
+            log(`Payload: <pre>${JSON.stringify(payload, null, 2)}</pre>`, 'info');
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                log(`📥 Response: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                const text = await response.text();
+                let data;
+                
+                try {
+                    data = JSON.parse(text);
+                    log(`Response body: <pre>${JSON.stringify(data, null, 2)}</pre>`, response.ok ? 'success' : 'error');
+                } catch {
+                    log(`Raw response: <pre>${text}</pre>`, 'error');
+                    return;
+                }
+
+                if (response.ok && data.success && data.pay_url) {
+                    log('✅ TẠO URL THÀNH CÔNG!', 'success');
+                    
+                    const url = new URL(data.pay_url);
+                    const params = Object.fromEntries(url.searchParams);
+                    
+                    log(`VNPay Parameters: <pre>${JSON.stringify(params, null, 2)}</pre>`, 'info');
+                    
+                    if (params.vnp_BankCode) {
+                        log(`🏦 Bank Code trong URL: ${params.vnp_BankCode}`, 'success');
+                    } else {
+                        log(`📝 Không có bank code (hiển thị tất cả banks)`, 'info');
+                    }
+                    
+                    log('🌐 Mở VNPay trong 3 giây...', 'info');
+                    setTimeout(() => window.open(data.pay_url, '_blank'), 3000);
+                } else {
+                    log(`❌ LỖI: ${data.message || data.detail || 'Unknown error'}`, 'error');
+                    if (data.detail && data.detail.includes('bank')) {
+                        log('💡 GỢI Ý: Thử bỏ bank_code hoặc sửa validation trong backend', 'warning');
+                    }
+                }
+            } catch (error) {
+                log(`❌ Network Error: ${error.message}`, 'error');
+            } finally {
+                testBtn.disabled = false;
+                testBankBtn.disabled = false;
+            }
+        }
+
+        window.onload = () => {
+            initBankGrid();
+            log('✅ Debug tool đã sẵn sàng', 'success');
+            log('💡 Hãy chọn bank và click Test để bắt đầu', 'info');
+        };
+    </script>
+</body>
+</html>
