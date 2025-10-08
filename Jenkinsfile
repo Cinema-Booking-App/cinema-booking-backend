@@ -50,12 +50,12 @@ pipeline {
             }
         }
 
-        stage('Deploy to Server') {
+       stage('Deploy to Server') {
             steps {
                 script {
                     echo "🚀 Deploying backend container..."
                     sh '''
-                    cd /home/ubuntu/project
+                    cd /home/phamvantinh27032004/project
                     docker compose pull
                     docker compose down
                     docker compose up -d
@@ -64,6 +64,7 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {
