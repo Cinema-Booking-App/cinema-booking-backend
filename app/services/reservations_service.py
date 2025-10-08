@@ -181,6 +181,12 @@ async def create_multiple_reserved_seats(reservations_in: List[SeatReservationsC
 # Giải phóng ghế (hủy reservation)
 async def cancel_seat_reservations(showtime_id: int, seat_ids: List[int], session_id: str, db: Session):
     try:
+        # Validate showtime exists
+        showtime = db.query(Showtimes).filter(Showtimes.showtime_id == showtime_id).first()
+        if not showtime:
+            raise HTTPException(status_code=404, detail="Showtime not found")
+        
+        # Find reservations to cancel (chỉ pending và của session này)
         reservations_to_cancel = db.query(SeatReservations).filter(
             SeatReservations.showtime_id == showtime_id,
             SeatReservations.seat_id.in_(seat_ids),
@@ -189,10 +195,22 @@ async def cancel_seat_reservations(showtime_id: int, seat_ids: List[int], sessio
         ).all()
         
         if not reservations_to_cancel:
-            raise HTTPException(status_code=404, detail="No pending reservations found")
+            # Trả về thành công nhưng không có gì để hủy
+            return {
+                "success": True,
+                "message": "No pending reservations found to cancel",
+                "cancelled_seats": []
+            }
         
         cancelled_seat_ids = []
+        seat_codes = []
+        
         for reservation in reservations_to_cancel:
+            # Lấy seat_code để gửi WebSocket
+            seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
+            if seat:
+                seat_codes.append(seat.seat_code)
+            
             cancelled_seat_ids.append(reservation.seat_id)
             db.delete(reservation)
         
@@ -201,15 +219,27 @@ async def cancel_seat_reservations(showtime_id: int, seat_ids: List[int], sessio
         # Gửi thông báo WebSocket về việc giải phóng ghế
         try:
             from app.core.websocket_manager import websocket_manager
-            # Thông báo realtime rằng các ghế đã được giải phóng (có thể đặt lại)
+            # Thông báo realtime rằng các ghế đã được giải phóng
             await websocket_manager.send_seat_released(
-                showtime_id=showtime_id,      # Suất chiếu
-                seat_ids=cancelled_seat_ids   # Danh sách ghế được giải phóng
+                showtime_id=showtime_id,
+                seat_ids=cancelled_seat_ids
             )
+            print(f"✅ WebSocket thông báo giải phóng {len(cancelled_seat_ids)} ghế cho showtime {showtime_id}")
         except Exception as ws_error:
-            print(f"Thông báo WebSocket giải phóng ghế thất bại: {ws_error}")
+            print(f"❌ Thông báo WebSocket giải phóng ghế thất bại: {ws_error}")
         
-        return {"cancelled_seats": cancelled_seat_ids}
+        # Lấy room_id từ showtime để frontend có thể invalidate seats cache
+        room_id = showtime.room_id if showtime else None
+        
+        return {
+            "success": True,
+            "message": f"Successfully cancelled {len(cancelled_seat_ids)} seat reservations",
+            "cancelled_seats": cancelled_seat_ids,
+            "seat_codes": seat_codes,
+            "showtime_id": showtime_id,
+            "session_id": session_id,
+            "room_id": room_id
+        }
         
     except Exception as e:
         db.rollback()

@@ -102,14 +102,17 @@ class WebSocketManager:
 
     async def send_seat_released(self, showtime_id: int, seat_ids: List[int], exclude_websocket: WebSocket = None):
         """Thông báo rằng các ghế đã được giải phóng (hết thời gian giữ chỗ hoặc hủy đặt)"""
+        from datetime import datetime
+        
         message = {
-            "type": "seats_released",  # Loại tin nhắn: ghế đã được giải phóng
+            "type": "seat_released",  # Đồng nhất với frontend
             "showtime_id": showtime_id,
-            "data": {
-                "seat_ids": seat_ids,  # Danh sách ID ghế được giải phóng
-                "timestamp": json.dumps({"$date": {"$numberLong": str(int(__import__('time').time() * 1000))}})  # Thời gian giải phóng ghế
-            }
+            "seat_ids": seat_ids,  # Đưa seat_ids lên level trên cho dễ access
+            "timestamp": datetime.now().isoformat(),  # ISO format đơn giản hơn
+            "reason": "user_cancelled"  # Lý do giải phóng
         }
+        
+        logger.info(f"🔄 Broadcasting seat_released: showtime={showtime_id}, seats={seat_ids}")
         await self.broadcast_to_showtime(message, showtime_id, exclude_websocket)
 
     def get_connection_count(self, showtime_id: int) -> int:
