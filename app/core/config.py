@@ -9,6 +9,15 @@ class Settings(BaseSettings):
     EMAIL_USERNAME: str = ""
     EMAIL_PASSWORD: str = ""
     CORS_ALLOW_ORIGINS: str = ""  # Comma-separated list of origins
+    
+    # VNPay Configuration
+    VNPAY_TMN_CODE: str = ""  # Website ID in VNPAY System
+    VNPAY_HASH_SECRET_KEY: str = ""  # Secret key for create checksum
+    VNPAY_PAYMENT_URL: str = ""  # VNPay payment gateway URL
+    VNPAY_API_URL: str = ""  # VNPay API URL for queries
+    VNPAY_RETURN_URL: str = ""  # Backend return URL
+    VNPAY_IPN_URL: str = ""  # Backend IPN URL
+    
     class Config:
         env_file = ".env"
 

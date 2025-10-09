@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import uvicorn
 from app.core.middleware import setup_middleware
 from app.utils.response import error_response
-from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos,ranks
+from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos, ranks, payments
 # from app.core.database import Base, engine
 
 app = FastAPI(title="Cinema Booking API", version="1.0.0")
@@ -24,6 +24,7 @@ app.include_router(tickets.router,  prefix="/api/v1",tags=["Tickets"])
 app.include_router(combos.router, prefix="/api/v1", tags=["Combos"])
 app.include_router(ranks.router, prefix="/api/v1", tags=["Ranks"])
 app.include_router(roles.router, prefix="/api/v1", tags=["Roles"])
+app.include_router(payments.router, prefix="/api/v1/payments", tags=["Payments"])
 
 @app.get("/")
 async def root():
