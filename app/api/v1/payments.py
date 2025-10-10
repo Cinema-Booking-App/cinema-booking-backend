@@ -8,6 +8,88 @@ from app.schemas.payments import PaymentRequest
 router = APIRouter()
 payment_service = PaymentService()
 
+# Tạo thanh toán từ reservation
+@router.post("/vnpay/create-payment-from-reservation")
+async def create_vnpay_payment_from_reservation(
+    reservation_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Tạo thanh toán VNPay từ reservation ID"""
+    try:
+        # Import ở đây để tránh circular import
+        from app.models.seat_reservations import SeatReservations
+        from app.models.showtimes import Showtimes
+        from app.models.seats import Seats
+        from app.models.movies import Movies
+        
+        # Lấy thông tin reservation
+        reservation = db.query(SeatReservations).filter(
+            SeatReservations.reservation_id == reservation_id
+        ).first()
+        
+        if not reservation:
+            raise HTTPException(status_code=404, detail="Reservation not found")
+        
+        if reservation.status != "pending":
+            raise HTTPException(status_code=400, detail="Reservation is not in pending status")
+        
+        # Lấy thông tin để tính giá vé
+        showtime = db.query(Showtimes).filter(
+            Showtimes.showtime_id == reservation.showtime_id
+        ).first()
+        
+        seat = db.query(Seats).filter(
+            Seats.seat_id == reservation.seat_id
+        ).first()
+        
+        if not showtime or not seat:
+            raise HTTPException(status_code=404, detail="Showtime or seat not found")
+        
+        # Tính giá vé (base price từ showtime)
+        ticket_price = showtime.ticket_price
+        
+        # Tạo PaymentRequest
+        payment_request = PaymentRequest(
+            order_id=str(reservation_id),
+            amount=ticket_price,
+            order_desc=f"Thanh toan ve xem phim - Ghe {seat.seat_code} - Suat {showtime.showtime_id}",
+            language="vn"
+        )
+        
+        # Lấy địa chỉ IP của client
+        client_ip = request.client.host
+        
+        # Tạo bản ghi thanh toán
+        payment_service.create_payment_record(
+            db=db,
+            order_id=payment_request.order_id,
+            amount=payment_request.amount,
+            payment_method="vnpay",
+            order_desc=payment_request.order_desc,
+            client_ip=client_ip,
+            user_id=reservation.user_id
+        )
+        
+        # Tạo URL thanh toán VNPay
+        payment_response = payment_service.create_vnpay_payment_url(payment_request, client_ip)
+        
+        return {
+            "status": "success",
+            "data": {
+                "payment_url": payment_response.payment_url,
+                "order_id": payment_response.order_id,
+                "reservation_id": reservation_id,
+                "amount": ticket_price,
+                "expires_at": reservation.expires_at
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 # Tạo thanh toán VNPay
 @router.post("/vnpay/create-payment")
 async def create_vnpay_payment(
@@ -55,10 +137,10 @@ async def vnpay_return_callback(
         # Process return callback
         payment_result = payment_service.handle_vnpay_callback(query_params)
         
-        # Update payment status
-        payment_service.update_payment_status(db, payment_result.order_id, payment_result)
+        # Update payment status and process ticket creation
+        result = payment_service.update_payment_status(db, payment_result.order_id, payment_result)
         
-        return payment_result
+        return result
         
     except HTTPException:
         raise
@@ -82,8 +164,8 @@ async def vnpay_ipn_callback(
         # Process IPN callback
         payment_result = payment_service.handle_vnpay_callback(query_params)
         
-        # Update payment status
-        payment_service.update_payment_status(db, payment_result.order_id, payment_result)
+        # Update payment status and process ticket creation
+        result = payment_service.update_payment_status(db, payment_result.order_id, payment_result)
         
         # Return response to VNPay
         if payment_result.success:

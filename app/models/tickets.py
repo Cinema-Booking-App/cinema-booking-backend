@@ -22,7 +22,7 @@ class Tickets(Base):
     status = Column(Enum(TicketStatusEnum), default=TicketStatusEnum.pending, server_default="pending")
     cancelled_at = Column(DateTime, nullable=True)
     # Thời điểm xác thực vé thành công (quét QR)
-    validated_at = Column(DateTime, nullable=True)
+    # validated_at = Column(DateTime, nullable=True)
 
     # Quan hệ
     transaction_tickets = relationship("TransactionTickets", back_populates="ticket")
