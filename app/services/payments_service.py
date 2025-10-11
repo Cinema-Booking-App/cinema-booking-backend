@@ -33,7 +33,7 @@ class PaymentService:
                 vnp_Version='2.1.0',
                 vnp_Command='pay',
                 vnp_TmnCode=settings.VNPAY_TMN_CODE,
-                vnp_Amount=payment_request.amount * 100,  # VNPay yêu cầu amount * 100
+                vnp_Amount=payment_request.amount * 100,
                 vnp_CurrCode='VND',
                 vnp_TxnRef=payment_request.order_id,
                 vnp_OrderInfo=payment_request.order_desc,
@@ -189,6 +189,101 @@ class PaymentService:
     def get_payment_by_order_id(self, db: Session, order_id: str) -> Optional[Payment]:
         """Lấy thông tin thanh toán theo order ID"""
         return db.query(Payment).filter(Payment.order_id == order_id).first()
+    
+    def create_payment_from_reservation(
+        self, 
+        db: Session, 
+        reservation_id: int,
+        client_ip: str
+    ) -> Dict[str, Any]:
+        """Tạo thanh toán từ reservation với giá chính xác"""
+        try:
+            # Import ở đây để tránh circular import
+            from app.models.seat_reservations import SeatReservations
+            from app.models.showtimes import Showtimes
+            from app.models.seats import Seats
+            
+            # Lấy thông tin reservation
+            reservation = db.query(SeatReservations).filter(
+                SeatReservations.reservation_id == reservation_id
+            ).first()
+            
+            if not reservation:
+                raise HTTPException(status_code=404, detail="Reservation not found")
+            
+            if reservation.status != "pending":
+                raise HTTPException(status_code=400, detail="Reservation is not in pending status")
+            
+            # Kiểm tra reservation còn hạn
+            current_time = datetime.utcnow()
+            expires_at = reservation.expires_at
+            
+            # Xử lý timezone
+            if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo:
+                expires_at = expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+            
+            if expires_at < current_time:
+                raise HTTPException(status_code=400, detail="Reservation has expired")
+            
+            # Lấy thông tin để tính giá vé
+            showtime = db.query(Showtimes).filter(
+                Showtimes.showtime_id == reservation.showtime_id
+            ).first()
+            
+            seat = db.query(Seats).filter(
+                Seats.seat_id == reservation.seat_id
+            ).first()
+            
+            if not showtime or not seat:
+                raise HTTPException(status_code=404, detail="Showtime or seat not found")
+            
+            # Tính giá vé chính xác theo loại ghế
+            ticket_price = self.calculate_ticket_price(
+                db, 
+                reservation.seat_id, 
+                reservation.showtime_id
+            )
+            
+            # Tạo order description
+            order_desc = f"Thanh toan ve xem phim - Ghe {seat.seat_code} - Suat {showtime.showtime_id}"
+            
+            # Tạo PaymentRequest
+            payment_request = PaymentRequest(
+                order_id=str(reservation_id),
+                amount=ticket_price,
+                order_desc=order_desc,
+                language="vn"
+            )
+            
+            # Tạo bản ghi thanh toán
+            self.create_payment_record(
+                db=db,
+                order_id=payment_request.order_id,
+                amount=payment_request.amount,
+                payment_method="vnpay",
+                order_desc=payment_request.order_desc,
+                client_ip=client_ip,
+                user_id=reservation.user_id
+            )
+            
+            # Tạo URL thanh toán VNPay
+            payment_response = self.create_vnpay_payment_url(payment_request, client_ip)
+            
+            return {
+                "payment_url": payment_response.payment_url,
+                "order_id": payment_response.order_id,
+                "reservation_id": reservation_id,
+                "amount": ticket_price,
+                "seat_code": seat.seat_code,
+                "showtime_id": showtime.showtime_id,
+                "expires_at": reservation.expires_at,
+                "message": "Payment URL created successfully"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create payment from reservation: {str(e)}")
     
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
         """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation"""
