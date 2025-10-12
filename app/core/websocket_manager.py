@@ -2,114 +2,170 @@ from typing import Dict, List, Set
 from fastapi import WebSocket
 import json
 import logging
+import asyncio
 
-# Khởi tạo logger để ghi log các hoạt động WebSocket
 logger = logging.getLogger(__name__)
 
 class WebSocketManager:
     """Lớp quản lý kết nối WebSocket cho hệ thống đặt vé xem phim theo thời gian thực"""
     
     def __init__(self):
-        # Dictionary lưu trữ các kết nối WebSocket theo showtime_id (ID suất chiếu)
+        # Dictionary lưu trữ các kết nối WebSocket theo showtime_id
         self.active_connections: Dict[int, Set[WebSocket]] = {}
-        # Dictionary ánh xạ kết nối WebSocket với showtime_id tương ứng
-        self.connection_showtime_map: Dict[WebSocket, int] = {}
+        # Dictionary ánh xạ kết nối WebSocket với showtime_id và session_id
+        self.connection_info: Dict[WebSocket, Dict] = {}
+        # Lock để tránh race condition
+        self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, showtime_id: int):
+    async def connect(self, websocket: WebSocket, showtime_id: int, session_id: str = None):
         """Chấp nhận kết nối WebSocket mới cho một suất chiếu cụ thể"""
-        await websocket.accept()
-        
-        # Thêm kết nối vào nhóm của suất chiếu cụ thể
-        if showtime_id not in self.active_connections:
-            self.active_connections[showtime_id] = set()
-        self.active_connections[showtime_id].add(websocket)
-        
-        # Ánh xạ kết nối với suất chiếu
-        self.connection_showtime_map[websocket] = showtime_id
-        
-        logger.info(f"WebSocket kết nối thành công cho suất chiếu {showtime_id}. Tổng số kết nối: {len(self.active_connections[showtime_id])}")
+        try:
+            await websocket.accept()
+            
+            async with self._lock:
+                # Thêm kết nối vào nhóm của suất chiếu cụ thể
+                if showtime_id not in self.active_connections:
+                    self.active_connections[showtime_id] = set()
+                self.active_connections[showtime_id].add(websocket)
+                
+                # Lưu thông tin kết nối
+                self.connection_info[websocket] = {
+                    "showtime_id": showtime_id,
+                    "session_id": session_id,
+                    "connected_at": asyncio.get_event_loop().time()
+                }
+                
+            logger.info(
+                f"✅ WebSocket connected: showtime={showtime_id}, "
+                f"session={session_id}, total={len(self.active_connections[showtime_id])}"
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Error in connect: {e}")
+            raise
 
-    def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket):
         """Xóa kết nối WebSocket khi client ngắt kết nối"""
-        if websocket in self.connection_showtime_map:
-            showtime_id = self.connection_showtime_map[websocket]
-            
-            # Xóa kết nối khỏi nhóm suất chiếu
-            if showtime_id in self.active_connections:
-                self.active_connections[showtime_id].discard(websocket)
-                # Nếu không còn kết nối nào, xóa luôn nhóm suất chiếu
-                if not self.active_connections[showtime_id]:
-                    del self.active_connections[showtime_id]
-            
-            # Xóa ánh xạ kết nối
-            del self.connection_showtime_map[websocket]
-            
-            logger.info(f"WebSocket đã ngắt kết nối cho suất chiếu {showtime_id}")
+        async with self._lock:
+            if websocket in self.connection_info:
+                info = self.connection_info[websocket]
+                showtime_id = info["showtime_id"]
+                session_id = info.get("session_id")
+                
+                # Xóa kết nối khỏi nhóm suất chiếu
+                if showtime_id in self.active_connections:
+                    self.active_connections[showtime_id].discard(websocket)
+                    # Nếu không còn kết nối nào, xóa luôn nhóm suất chiếu
+                    if not self.active_connections[showtime_id]:
+                        del self.active_connections[showtime_id]
+                
+                # Xóa thông tin kết nối
+                del self.connection_info[websocket]
+                
+                logger.info(
+                    f"🔌 WebSocket disconnected: showtime={showtime_id}, "
+                    f"session={session_id}"
+                )
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         """Gửi tin nhắn riêng tư đến một client cụ thể"""
         try:
             await websocket.send_text(message)
         except Exception as e:
-            logger.error(f"Lỗi khi gửi tin nhắn cá nhân: {e}")
-            self.disconnect(websocket)
+            logger.error(f"❌ Error sending personal message: {e}")
+            await self.disconnect(websocket)
 
-    async def broadcast_to_showtime(self, message: dict, showtime_id: int, exclude_websocket: WebSocket = None):
+    async def broadcast_to_showtime(
+        self, 
+        message: dict, 
+        showtime_id: int, 
+        exclude_websocket: WebSocket = None,
+        only_session: str = None
+    ):
         """Phát sóng tin nhắn đến tất cả client đang xem một suất chiếu cụ thể"""
         if showtime_id not in self.active_connections:
             return
         
         message_str = json.dumps(message)
         disconnected_connections = []
+        sent_count = 0
         
         # Duyệt qua tất cả kết nối trong suất chiếu
-        for connection in self.active_connections[showtime_id].copy():
-            # Bỏ qua kết nối được loại trừ (thường là người gửi)
+        for connection in list(self.active_connections.get(showtime_id, set())):
+            # Bỏ qua kết nối được loại trừ
             if exclude_websocket and connection == exclude_websocket:
                 continue
+            
+            # Nếu chỉ gửi cho session cụ thể
+            if only_session:
+                info = self.connection_info.get(connection, {})
+                if info.get("session_id") != only_session:
+                    continue
                 
             try:
                 await connection.send_text(message_str)
+                sent_count += 1
             except Exception as e:
-                logger.error(f"Lỗi khi phát sóng đến kết nối: {e}")
+                logger.error(f"❌ Error broadcasting to connection: {e}")
                 disconnected_connections.append(connection)
         
         # Dọn dẹp các kết nối bị lỗi
         for connection in disconnected_connections:
-            self.disconnect(connection)
+            await self.disconnect(connection)
+        
+        logger.debug(f"📢 Broadcast sent to {sent_count} connections")
 
-    async def send_seat_update(self, showtime_id: int, seat_data: dict, exclude_websocket: WebSocket = None):
+    async def send_seat_update(
+        self, 
+        showtime_id: int, 
+        seat_data: dict, 
+        exclude_websocket: WebSocket = None
+    ):
         """Gửi cập nhật trạng thái ghế ngồi đến tất cả client đang xem suất chiếu"""
         message = {
-            "type": "seat_update",  # Loại tin nhắn: cập nhật ghế
+            "type": "seat_update",
             "showtime_id": showtime_id,
-            "data": seat_data  # Dữ liệu trạng thái ghế
+            "data": seat_data
         }
         await self.broadcast_to_showtime(message, showtime_id, exclude_websocket)
 
-    async def send_seat_reserved(self, showtime_id: int, seat_ids: List[int], user_session: str, exclude_websocket: WebSocket = None):
+    async def send_seat_reserved(
+        self, 
+        showtime_id: int, 
+        seat_ids: List[int], 
+        user_session: str, 
+        exclude_websocket: WebSocket = None
+    ):
         """Thông báo rằng các ghế đã được đặt chỗ"""
+        from datetime import datetime
+        
         message = {
-            "type": "seats_reserved",  # Loại tin nhắn: ghế đã được đặt
+            "type": "seats_reserved",
             "showtime_id": showtime_id,
             "data": {
-                "seat_ids": seat_ids,  # Danh sách ID ghế được đặt
-                "user_session": user_session,  # Phiên người dùng đặt ghế
-                "timestamp": json.dumps({"$date": {"$numberLong": str(int(__import__('time').time() * 1000))}})  # Thời gian đặt ghế
+                "seat_ids": seat_ids,
+                "user_session": user_session,
+                "timestamp": datetime.now().isoformat()
             }
         }
         await self.broadcast_to_showtime(message, showtime_id, exclude_websocket)
 
-    async def send_seat_released(self, showtime_id: int, seat_ids: List[int], exclude_websocket: WebSocket = None):
-        """Thông báo rằng các ghế đã được giải phóng (hết thời gian giữ chỗ hoặc hủy đặt)"""
+    async def send_seat_released(
+        self, 
+        showtime_id: int, 
+        seat_ids: List[int], 
+        exclude_websocket: WebSocket = None,
+        reason: str = "user_cancelled"
+    ):
+        """Thông báo rằng các ghế đã được giải phóng"""
         from datetime import datetime
         
         message = {
-            "type": "seat_released",  # Đồng nhất với frontend
+            "type": "seat_released",
             "showtime_id": showtime_id,
-            "seat_ids": seat_ids,  # Đưa seat_ids lên level trên cho dễ access
-            "timestamp": datetime.now().isoformat(),  # ISO format đơn giản hơn
-            "reason": "user_cancelled"  # Lý do giải phóng
+            "seat_ids": seat_ids,
+            "timestamp": datetime.now().isoformat(),
+            "reason": reason
         }
         
         logger.info(f"🔄 Broadcasting seat_released: showtime={showtime_id}, seats={seat_ids}")
@@ -118,6 +174,18 @@ class WebSocketManager:
     def get_connection_count(self, showtime_id: int) -> int:
         """Lấy số lượng kết nối đang hoạt động cho một suất chiếu"""
         return len(self.active_connections.get(showtime_id, set()))
+    
+    def get_all_connections_info(self, showtime_id: int) -> List[Dict]:
+        """Lấy thông tin chi tiết của tất cả kết nối cho một suất chiếu"""
+        connections = self.active_connections.get(showtime_id, set())
+        return [
+            {
+                "session_id": self.connection_info[conn].get("session_id"),
+                "connected_at": self.connection_info[conn].get("connected_at")
+            }
+            for conn in connections
+            if conn in self.connection_info
+        ]
 
-# Instance toàn cục của WebSocket manager để sử dụng trong toàn bộ ứng dụng
+# Instance toàn cục của WebSocket manager
 websocket_manager = WebSocketManager()
