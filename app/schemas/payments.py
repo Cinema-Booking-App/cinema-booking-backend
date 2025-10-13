@@ -19,11 +19,9 @@ class PaymentMethod(str, Enum):
 
 class PaymentRequest(BaseModel):
     """Yêu cầu thanh toán"""
-    order_id: str
-    amount: float
+    session_id: Optional[str] = None
     order_desc: str
     payment_method: PaymentMethod
-    bank_code: Optional[str] = None
     language: str = "vn"
 
 
@@ -31,12 +29,10 @@ class PaymentResponse(BaseModel):
     """Phản hồi thanh toán"""
     payment_url: Optional[str] = None
     order_id: str
-    transaction_id: Optional[str] = None
     amount: float
     payment_method: PaymentMethod
     payment_status: PaymentStatus
-    expires_at: Optional[datetime] = None
-    message: Optional[str] = None
+    # expires_at: Optional[datetime] = None
 
 
 class VNPayCallback(BaseModel):
@@ -58,7 +54,6 @@ class PaymentResult(BaseModel):
     order_id: str
     transaction_id: Optional[str] = None
     amount: Optional[float] = None
-    message: str
     payment_method: PaymentMethod
     payment_status: PaymentStatus
     payment_url: Optional[str] = None

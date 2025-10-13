@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from datetime import datetime, timezone
+import uuid
 
 from app.core.config import settings
 from app.payments.vnpay import VNPay
@@ -24,8 +25,79 @@ class PaymentService:
     
     def __init__(self):
         self.vnpay = VNPay()
-    
-    def create_vnpay_payment_url(self, payment_request: PaymentRequest, client_ip: str) -> PaymentResponse:
+
+    def create_payment(self, db: Session, request: PaymentRequest, client_ip: str):
+        order_id = str(uuid.uuid4())
+        reservations = db.query(SeatReservations).filter(
+            SeatReservations.session_id == request.session_id,
+            SeatReservations.status == 'pending'
+        ).all()
+        if not reservations:
+            raise ValueError("Không tìm thấy reservation hợp lệ với session_id đã cho")
+        # Tính tổng số tiền từ các reservation
+        total_amount = 0
+        for reservation in reservations:
+            ticket_price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
+            total_amount += ticket_price
+        
+        # Đảm bảo payment_method là Enum
+        payment_method = request.payment_method
+        if isinstance(payment_method, str):
+            try:
+                payment_method = PaymentMethodEnum(payment_method)
+            except Exception:
+                raise HTTPException(status_code=400, detail=f"Invalid payment_method: {payment_method}")
+
+        payment = Payment(
+            order_id=order_id,
+            amount=total_amount,
+            payment_method=payment_method,
+            payment_status=PaymentStatusEnum.PENDING,
+            order_desc=request.order_desc,
+            client_ip=client_ip
+        )
+        db.add(payment)
+        db.commit()
+        
+        # Gán payment_id cho các ghế đã chọn
+        db.query(SeatReservations).filter(
+            SeatReservations.session_id == request.session_id,
+            SeatReservations.status == 'pending'
+        ).update({SeatReservations.payment_id: payment.payment_id}, synchronize_session=False)
+        db.commit()
+        
+        # Tạo transaction khởi tạo (log)
+        transaction = Transaction(
+            user_id=None,
+            staff_user_id=None,
+            promotion_id=None,
+            total_amount=total_amount,
+            payment_method=payment_method.value,
+            status=TransactionStatus.pending,
+            transaction_time=datetime.utcnow()
+        )
+        db.add(transaction)
+        db.commit()
+        db.refresh(transaction)
+
+        if request.payment_method == PaymentMethod.VNPAY:
+            payment.payment_url = self.create_vnpay_url(request, client_ip, total_amount, order_id)
+        elif request.payment_method == "MOMO":
+            payment.payment_url = self.create_momo_url(request, client_ip)
+        elif request.payment_method == "CASH":
+            payment.payment_url = None
+            
+        db.commit()
+#         db.refresh(payment)
+        return PaymentResponse(
+            payment_url=payment.payment_url,
+            order_id=order_id,
+            amount=payment.amount,
+            payment_method=payment.payment_method,
+            payment_status=payment.payment_status
+)
+
+    def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id : str) -> PaymentResponse:
         """Tạo URL thanh toán VNPay"""
         try:
             # Set VNPay request data
@@ -33,9 +105,9 @@ class PaymentService:
                 vnp_Version='2.1.0',
                 vnp_Command='pay',
                 vnp_TmnCode=settings.VNPAY_TMN_CODE,
-                vnp_Amount=payment_request.amount * 100,
+                vnp_Amount=amount * 100,
                 vnp_CurrCode='VND',
-                vnp_TxnRef=payment_request.order_id,
+                vnp_TxnRef=order_id,
                 vnp_OrderInfo=payment_request.order_desc,
                 vnp_OrderType='other',
                 vnp_Locale=payment_request.language,
@@ -44,19 +116,13 @@ class PaymentService:
                 vnp_ReturnUrl=settings.VNPAY_RETURN_URL
             )
             
-            if payment_request.bank_code:
-                self.vnpay.set_request_data(vnp_BankCode=payment_request.bank_code)
-            
             # Generate payment URL
             payment_url = self.vnpay.get_payment_url(
                 settings.VNPAY_PAYMENT_URL,
                 settings.VNPAY_HASH_SECRET_KEY
             )
             
-            return PaymentResponse(
-                payment_url=payment_url,
-                order_id=payment_request.order_id
-            )
+            return payment_url
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create payment URL: {str(e)}")
@@ -107,36 +173,6 @@ class PaymentService:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to process callback: {str(e)}")
     
-    def create_payment_record(
-        self, 
-        db: Session,
-        order_id: str,
-        amount: int,
-        payment_method: str,
-        order_desc: str,
-        client_ip: str,
-        user_id: Optional[int] = None
-    ) -> Payment:
-        """Tạo bản ghi thanh toán trong database"""
-        try:
-            payment = Payment(
-                order_id=order_id,
-                amount=amount,
-                payment_method=PaymentMethodEnum(payment_method),
-                payment_status=PaymentStatusEnum.PENDING,
-                order_desc=order_desc,
-                client_ip=client_ip
-            )
-            
-            db.add(payment)
-            db.commit()
-            db.refresh(payment)
-            
-            return payment
-            
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to create payment record: {str(e)}")
     
     def update_payment_status(
         self,

@@ -68,3 +68,12 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER trigger_update_payments_updated_at
 BEFORE UPDATE ON payments
 FOR EACH ROW EXECUTE FUNCTION update_payments_updated_at();
+
+
+
+
+-- Cập nhật bảng liên quan để thêm khóa ngoại payment_id
+ALTER TABLE seat_reservations
+ADD COLUMN payment_id INTEGER REFERENCES payments(payment_id) ON DELETE SET NULL;
+ALTER TABLE transactions
+ADD COLUMN payment_id INTEGER REFERENCES payments(payment_id) ON DELETE SET NULL;

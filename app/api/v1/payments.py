@@ -9,62 +9,22 @@ from app.utils.response import success_response
 router = APIRouter()
 payment_service = PaymentService()
 
-# Tạo thanh toán từ reservation
-@router.post("/vnpay/create-payment-from-reservation")
-async def create_vnpay_payment_from_reservation(
-    reservation_id: int,
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Tạo thanh toán VNPay từ reservation ID"""
-    try:
-        # Lấy địa chỉ IP của client
-        client_ip = request.client.host
-        
-        # Gọi service để xử lý
-        result = payment_service.create_payment_from_reservation(
-            db=db,
-            reservation_id=reservation_id,
-            client_ip=client_ip
-        )
-        
-        return success_response(result)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-# Tạo thanh toán VNPay
-@router.post("/vnpay/create-payment")
+# Tạo thanh toán
+@router.post("/create")
 async def create_vnpay_payment(
     payment_request: PaymentRequest,
     request: Request,
     db: Session = Depends(get_db)
 ):
     try:
-        # Lấy địa chỉ IP của client
         client_ip = request.client.host
-        
-        # Tạo bản ghi thanh toán
-        payment_service.create_payment_record(
-            db=db,
-            order_id=payment_request.order_id,
-            amount=payment_request.amount,
-            payment_method="vnpay",
-            order_desc=payment_request.order_desc,
-            client_ip=client_ip
-        )
-        
-        # Tạo URL thanh toán VNPay
-        payment_response = payment_service.create_vnpay_payment_url(payment_request, client_ip)
-        
-        return payment_response
-        
-    except HTTPException:
-        raise
+        payment = payment_service.create_payment(db, payment_request, client_ip)
+        return success_response(payment)
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create payment: {e}")
 
 
 @router.get("/vnpay/return")

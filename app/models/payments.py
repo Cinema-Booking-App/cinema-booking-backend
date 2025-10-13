@@ -2,6 +2,7 @@ from sqlalchemy import Column, Float, ForeignKey, Integer, String, DateTime, Enu
 from sqlalchemy.sql import func
 from app.core.database import Base
 import enum
+from sqlalchemy.orm import relationship
 
 
 class PaymentStatusEnum(enum.Enum):
@@ -41,6 +42,10 @@ class Payment(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Mối quan hệ transactions và seat_reservations
+    transactions = relationship("Transaction", back_populates="payment")
+    seat_reservations = relationship("SeatReservations", back_populates="payment")
 
     def __repr__(self):
         return f"<Payment(id={self.id}, order_id={self.order_id}, status={self.payment_status})>"
