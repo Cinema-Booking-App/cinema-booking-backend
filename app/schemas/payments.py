@@ -1,37 +1,45 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
 
 
 class PaymentStatus(str, Enum):
-    PENDING = "pending"
-    SUCCESS = "success"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 class PaymentMethod(str, Enum):
-    VNPAY = "vnpay"
-    CASH = "cash"
-
+    VNPAY = "VNPAY"
+    CASH = "CASH"
+    MOMO = "MOMO"
+    ZALO_PAY = "ZALO_PAY"
+    BANK_TRANSFER = "BANK_TRANSFER"
 
 class PaymentRequest(BaseModel):
     """Yêu cầu thanh toán"""
     order_id: str
-    amount: int  # Số tiền VND
+    amount: float
     order_desc: str
+    payment_method: PaymentMethod
     bank_code: Optional[str] = None
     language: str = "vn"
 
 
 class PaymentResponse(BaseModel):
     """Phản hồi thanh toán"""
-    payment_url: str
+    payment_url: Optional[str] = None
     order_id: str
+    transaction_id: Optional[str] = None
+    amount: float
+    payment_method: PaymentMethod
+    payment_status: PaymentStatus
+    expires_at: Optional[datetime] = None
+    message: Optional[str] = None
 
 
 class VNPayCallback(BaseModel):
-    """VNPay callback/return data"""
     vnp_Amount: str
     vnp_BankCode: str
     vnp_BankTranNo: Optional[str] = None
@@ -46,11 +54,12 @@ class VNPayCallback(BaseModel):
 
 
 class PaymentResult(BaseModel):
-    """Kết quả thanh toán"""
     success: bool
     order_id: str
     transaction_id: Optional[str] = None
-    amount: Optional[int] = None
+    amount: Optional[float] = None
     message: str
     payment_method: PaymentMethod
     payment_status: PaymentStatus
+    payment_url: Optional[str] = None
+    expires_at: Optional[datetime] = None
