@@ -3,8 +3,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg2://postgres:12345678@localhost:5432/cinema-booking"
     SECRET_KEY: str  = ""
-    ACCESS_TOKEN_EXPIRE_MINUTES: int  = 60
-    REFRESH_TOKEN_EXPIRE_DAYS: int  = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int  
+    REFRESH_TOKEN_EXPIRE_DAYS: int 
     ALGORITHM: str  = "HS256"
     EMAIL_USERNAME: str = ""
     EMAIL_PASSWORD: str = ""

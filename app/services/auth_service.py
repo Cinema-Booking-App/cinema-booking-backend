@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, status
+import platform
+from fastapi import Depends, HTTPException, Request, status
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session, joinedload
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.token_utils import create_token
+from app.models import permissions
 from app.models.email_verifications import EmailVerification
 from app.models.role import Role, UserRole
 from app.models.users import Users, UserStatusEnum
@@ -164,7 +166,7 @@ def register(db: Session, user_in: UserRegister):
         )
 
 
-def login(db: Session, user_in: UserLogin):
+def login(db: Session, user_in: UserLogin, request: Request):
     """Xử lý logic đăng nhập."""
     user = db.query(Users).filter(Users.email == user_in.email).first()
 
@@ -189,19 +191,35 @@ def login(db: Session, user_in: UserLogin):
         .all()
     )
     roles_list = [role_name[0] for role_name in user_roles_db]
+    # danh sách quyền 
+    user_permissions_db = (
+        db.query(permissions.Permission.permission_name)
+        .join(permissions.role_permissions)
+        .join(Role)
+        .join(UserRole)
+        .filter(UserRole.user_id == user.user_id)
+        .all()
+    )
 
     # Tạo payload cho token
-    payload = {"sub": user.email, "roles": roles_list}
-
+    payload = {
+        "sub": user.email,
+        "user_id": user.user_id,
+        "roles": roles_list,
+        "ip": request.client.host,
+        "device": platform.system(),  # ví dụ: "Windows", "Linux", "Darwin"
+        "permissions": [perm[0] for perm in user_permissions_db],
+    }
     access_token = create_access_token(payload)
     refresh_token = create_refresh_token({"sub": user.email})
+    
+    # Câp nhật lần đăng nhập cuối
+    user.last_login = datetime.now(timezone.utc)
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "roles": roles_list,
         "token_type": "bearer",
-        "user": UserResponse.from_orm(user),
     }
 
 
