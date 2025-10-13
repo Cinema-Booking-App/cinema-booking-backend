@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.token_utils import create_token
@@ -15,8 +15,8 @@ def auth_register(user_in: UserRegister, db: Session = Depends(get_db)):
 
 # Đăng nhập tài khoản.
 @router.post("/login")
-def login_route(user_in: UserLogin, db: Session = Depends(get_db)):
-    result = login(db, user_in)
+def login_route(user_in: UserLogin, db: Session = Depends(get_db), request: Request = None):
+    result = login(db, user_in , request)
     return success_response(result)
 
 # Xác nhận email với mã OTP
