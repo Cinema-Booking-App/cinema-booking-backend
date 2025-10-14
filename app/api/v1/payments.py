@@ -38,15 +38,14 @@ async def vnpay_return_callback(
     try:
         # Get query parameters
         query_params = dict(request.query_params)
-        
+
         # Process return callback
-        payment_result = payment_service.handle_vnpay_callback(query_params)
-        
+        payment_result = payment_service.handle_vnpay_callback(db, query_params)
+
         # Update payment status and process ticket creation
         result = payment_service.update_payment_status(db, payment_result.order_id, payment_result)
-        
+
         return result
-        
     except HTTPException:
         raise
     except Exception as e:
