@@ -77,3 +77,10 @@ ALTER TABLE seat_reservations
 ADD COLUMN payment_id INTEGER REFERENCES payments(payment_id) ON DELETE SET NULL;
 ALTER TABLE transactions
 ADD COLUMN payment_id INTEGER REFERENCES payments(payment_id) ON DELETE SET NULL;
+
+
+-- Xóa bảng transaction_tickets 
+DROP TABLE IF EXISTS transaction_tickets;
+-- thêm cột transaction_id vào bảng tickets
+ALTER TABLE tickets
+ADD COLUMN transaction_id INTEGER REFERENCES transactions(transaction_id) ON DELETE SET NULL;

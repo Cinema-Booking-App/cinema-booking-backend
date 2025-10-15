@@ -9,11 +9,10 @@ from app.payments.vnpay import VNPay
 from app.models.payments import Payment, PaymentStatusEnum, PaymentMethodEnum, VNPayPayment
 from app.models.seat_reservations import SeatReservations
 from app.models.tickets import Tickets
-from app.models.transactions import Transaction, TransactionTickets, TransactionStatus
+from app.models.transactions import Transaction, TransactionStatus
 from app.schemas.payments import (
     PaymentRequest,
     PaymentResponse,
-    VNPayCallback,
     PaymentResult,
     PaymentStatus,
     PaymentMethod
@@ -85,7 +84,8 @@ class PaymentService:
             total_amount=total_amount,
             payment_method=payment_method.value,
             status=TransactionStatus.pending,
-            transaction_time=datetime.utcnow()
+            transaction_time=datetime.utcnow(),
+            payment_id=payment.payment_id
         )
         db.add(transaction)
         db.commit()
@@ -281,29 +281,27 @@ class PaymentService:
     
         """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation"""
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
-        """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation
-        * Tìm payment bằng order_id
-        * Lấy tất cả seat_reservations có payment_id = payment.payment_id (status pending)
-        * Tạo transaction + ticket cho mỗi reservation
-        """
         try:
             # 0. Lấy payment để biết payment_id
             payment = self.get_payment_by_order_id(db, order_id)
             if not payment:
                 raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
+            
+            transaction = db.query(Transaction).filter(
+                Transaction.payment_id == payment.payment_id
+            ).first()
+            if not transaction:
+                raise HTTPException(status_code=404, detail=f"Transaction not found for payment_id: {payment.payment_id}")
 
-            # 1. Lấy tất cả reservation liên quan tới payment (những ghế đã được gán payment_id khi tạo payment)
             reservations = db.query(SeatReservations).filter(
                 SeatReservations.payment_id == payment.payment_id,
                 SeatReservations.status == 'pending'
             ).all()
 
             if not reservations:
-                # Có thể hệ thống gán payment_id theo session thay vì payment_id — nếu vậy, cân nhắc kiểm tra session_id
                 raise HTTPException(status_code=404, detail=f"No pending reservations found for payment_id: {payment.payment_id}")
 
             created_tickets = []
-            created_transactions = []
             reservation_ids = []
 
             # Xử lý mỗi reservation 1-1: tạo transaction + ticket cho từng ghế (nếu bạn muốn gom nhiều ghế vào 1 transaction có thể refactor)
@@ -326,19 +324,6 @@ class PaymentService:
                     reservation.showtime_id
                 )
 
-                # Tạo Transaction (một transaction / reservation)
-                db_transaction = Transaction(
-                    user_id=reservation.user_id,
-                    staff_user_id=reservation.user_id,
-                    promotion_id=None,
-                    total_amount=correct_price,
-                    payment_method=PaymentMethodEnum.VNPAY.value,   
-                    status=TransactionStatus.success,
-                    transaction_time=datetime.utcnow()
-                )
-                db.add(db_transaction)
-                db.flush()  # để lấy db_transaction.transaction_id
-
                 # Tạo Ticket
                 db_ticket = Tickets(
                     user_id=reservation.user_id,
@@ -346,37 +331,24 @@ class PaymentService:
                     seat_id=reservation.seat_id,
                     promotion_id=None,
                     price=correct_price,
-                    status='confirmed'
+                    status='confirmed',
+                    transaction_id=transaction.transaction_id 
                 )
                 db.add(db_ticket)
-                db.flush()  # để lấy db_ticket.ticket_id
+                db.flush() # Lấy ticket_id
 
-                # Liên kết Transaction và Ticket
-                db_transaction_ticket = TransactionTickets(
-                    transaction_id=db_transaction.transaction_id,
-                    ticket_id=db_ticket.ticket_id
-                )
-                db.add(db_transaction_ticket)
 
                 # Cập nhật reservation
                 reservation.status = "confirmed"
-                reservation.transaction_id = db_transaction.transaction_id
-
-                # Lưu tạm các id để return
-                created_transactions.append(db_transaction.transaction_id)
+                reservation.transaction_id = transaction.transaction_id
                 created_tickets.append(db_ticket.ticket_id)
 
-            # Commit tất cả thay đổi 1 lần
+            transaction.status = TransactionStatus.success
+            transaction.payment_ref_code = payment_result.transaction_id
             db.commit()
 
-            # Refresh objects nếu cần (lấy id)
-            # (lưu ý: không bắt buộc refresh tất cả nếu không dùng object sau này)
-            # trả về thông tin tổng hợp
             return {
-                # "reservation_ids": reservation_ids,
-                # "transaction_ids": created_transactions,
-                # "ticket_ids": created_tickets,
-                "ticket_price": correct_price if len(created_tickets) == 1 else None,
+                "transaction_id": transaction.transaction_id,
                 "vnp_transaction_no": payment_result.transaction_id,
                 "status": "success",
                 "message": "Payment processed successfully and tickets created"
@@ -389,6 +361,7 @@ class PaymentService:
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Failed to process successful payment: {str(e)}")
+ 
         # Thêm method calculate_ticket_price bị thiếu
     def calculate_ticket_price(self, db: Session, seat_id: int, showtime_id: int) -> int:
         """Tính giá vé dựa trên loại ghế và suất chiếu"""

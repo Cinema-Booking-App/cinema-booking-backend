@@ -262,6 +262,7 @@ CREATE TABLE showtimes (
 CREATE TABLE transactions (
     "transaction_id" SERIAL PRIMARY KEY,
     "user_id" INTEGER, -- ID của khách hàng
+    "payment_id" INTEGER, -- ID của thanh toán liên quan
     "staff_user_id" INTEGER, -- NEW: ID của nhân viên thực hiện giao dịch
     "promotion_id" INTEGER, -- Khuyến mãi áp dụng cho toàn giao dịch
     "total_amount" NUMERIC(10, 2) NOT NULL,
@@ -307,6 +308,7 @@ CREATE TABLE tickets (
     "ticket_id" SERIAL PRIMARY KEY,
     "user_id" INTEGER, -- ID của khách hàng sở hữu vé
     "showtime_id" INTEGER NOT NULL,
+    "transaction_id" INTEGER, -- Liên kết với giao dịch (nếu đã thanh toán)
     "seat_id" INTEGER NOT NULL,
     "promotion_id" INTEGER, -- Khuyến mãi áp dụng cho từng vé (nếu có)
     "price" NUMERIC(10, 2) NOT NULL, -- Giá cuối cùng của từng vé
@@ -318,13 +320,6 @@ CREATE TABLE tickets (
     WITH
         TIME ZONE, -- Thời điểm hủy vé
         UNIQUE ("showtime_id", "seat_id") -- Đảm bảo mỗi ghế trong một suất chiếu chỉ có một vé được xác nhận
-);
-
--- Bảng TransactionTickets (Liên kết Giao dịch và Vé)
-CREATE TABLE transaction_tickets (
-    "transaction_id" INTEGER NOT NULL,
-    "ticket_id" INTEGER NOT NULL,
-    PRIMARY KEY ("transaction_id", "ticket_id")
 );
 
 -- Bảng TransactionCombos (Liên kết Giao dịch và Combo)
@@ -339,6 +334,7 @@ CREATE TABLE transaction_combos (
 CREATE TABLE seat_reservations (
     "reservation_id" SERIAL PRIMARY KEY,
     "seat_id" INTEGER NOT NULL,
+    "payment_id" INTEGER,
     "showtime_id" INTEGER NOT NULL,
     "user_id" INTEGER, -- ID của người dùng (nếu đăng nhập)
     "session_id" VARCHAR(255), -- NEW: ID phiên làm việc (nếu chưa đăng nhập)
