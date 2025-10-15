@@ -275,32 +275,36 @@ CREATE TABLE transactions (
 );
 
 -- Bảng Payments (Chi tiết thanh toán)
+-- Bảng Payments (Chi tiết thanh toán)
 CREATE TABLE payments (
-    "payment_id" SERIAL PRIMARY KEY,
-    "order_id" VARCHAR(100) UNIQUE NOT NULL, -- Mã đơn hàng duy nhất
-    "transaction_id" INTEGER, -- Liên kết với bảng transactions
-    "vnp_transaction_no" VARCHAR(100), -- Mã giao dịch VNPay
-    "amount" INTEGER NOT NULL, -- Số tiền (VNĐ)
-    "payment_method" payment_method NOT NULL DEFAULT 'VNPAY',
-    "payment_status" payment_status DEFAULT 'PENDING',
+    payment_id SERIAL PRIMARY KEY,
+    order_id VARCHAR(100) UNIQUE NOT NULL,  -- Mã đơn hàng duy nhất
+    transaction_id INTEGER,  -- Liên kết với bảng transactions
+    amount DECIMAL(18, 2) NOT NULL,  -- Sử dụng DECIMAL cho tiền tệ chính xác
+    payment_method payment_method NOT NULL,  -- Không đặt default để linh hoạt
+    payment_status payment_status NOT NULL DEFAULT 'PENDING',
     
-    -- VNPay specific fields
-    "vnp_txn_ref" VARCHAR(100),
-    "vnp_bank_code" VARCHAR(20),
-    "vnp_card_type" VARCHAR(20),
-    "vnp_pay_date" VARCHAR(20),
-    "vnp_response_code" VARCHAR(10),
-    
-    -- Order information
-    "order_desc" TEXT,
-    "client_ip" VARCHAR(45),
+    -- Thông tin chung
+    order_desc TEXT,
+    client_ip VARCHAR(45),
     
     -- User information
-    "user_id" INTEGER,
+    user_id INTEGER,
     
     -- Timestamps
-    "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bảng chi tiết thanh toán qua VNPAY
+CREATE TABLE vnpay_payments (
+    payment_id INTEGER PRIMARY KEY REFERENCES payments(payment_id) ON DELETE CASCADE,
+    vnp_transaction_no VARCHAR(100),
+    vnp_txn_ref VARCHAR(100),
+    vnp_bank_code VARCHAR(20),
+    vnp_card_type VARCHAR(20),
+    vnp_pay_date TIMESTAMP WITH TIME ZONE, 
+    vnp_response_code VARCHAR(10)
 );
 
 -- Bảng Tickets (Vé)
