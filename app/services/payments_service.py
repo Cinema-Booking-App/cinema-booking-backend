@@ -39,13 +39,11 @@ class PaymentService:
             ticket_price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
             total_amount += ticket_price
         
-        # Đảm bảo payment_method là Enum
-        payment_method = request.payment_method
-        if isinstance(payment_method, str):
-            try:
-                payment_method = PaymentMethodEnum(payment_method)
-            except Exception:
-                raise HTTPException(status_code=400, detail=f"Invalid payment_method: {payment_method}")
+        # Chuẩn hóa payment_method về PaymentMethodEnum (hỗ trợ str hoặc schema enum)
+        try:
+            payment_method = PaymentMethodEnum(str(request.payment_method).upper())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid payment_method: {request.payment_method}")
         if payment_method  == PaymentMethodEnum.VNPAY:
             payment = VNPayPayment(
                 order_id=order_id,
@@ -91,25 +89,31 @@ class PaymentService:
         db.commit()
         db.refresh(transaction)
 
-        if request.payment_method == PaymentMethod.VNPAY:
+        # Sử dụng payment_method enum đã convert (PaymentMethodEnum)
+        if payment_method == PaymentMethodEnum.VNPAY:
             payment.payment_url = self.create_vnpay_url(request, client_ip, total_amount, order_id)
-        elif request.payment_method == "MOMO":
-            payment.payment_url = self.create_momo_url(request, client_ip)
-        elif request.payment_method == "CASH":
+        elif payment_method == PaymentMethodEnum.MOMO:
+            payment.payment_url = self.create_momo_url(request, client_ip) if hasattr(self, 'create_momo_url') else None
+        elif payment_method == PaymentMethodEnum.CASH:
             payment.payment_url = None
             
         db.commit()
-#         db.refresh(payment)
+        db.refresh(payment)
+        
+        # Convert enum to schema enum for response
+        response_payment_method = PaymentMethod(payment.payment_method.value)
+        response_payment_status = PaymentStatus(payment.payment_status.value)
+        
         return PaymentResponse(
             payment_url=payment.payment_url,
             order_id=order_id,
             amount=payment.amount,
-            payment_method=payment.payment_method,
-            payment_status=payment.payment_status
+            payment_method=response_payment_method,
+            payment_status=response_payment_status
 )
 
-    """Tạo URL thanh toán VNPay"""
-    def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id : str) -> PaymentResponse:
+    """Tạo URL thanh toán VNPay và trả về chuỗi URL."""
+    def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id : str) -> str:
         try:
             # Set VNPay request data
             self.vnpay.set_request_data(
@@ -172,11 +176,13 @@ class PaymentService:
                 
             # Check payment status
             if response_code == '00':
-                status = PaymentStatus.SUCCESS
+                status_schema = PaymentStatus.SUCCESS
+                status_model = PaymentStatusEnum.SUCCESS
                 message = "Payment successful"
                 success = True
             else:
-                status = PaymentStatus.FAILED
+                status_schema = PaymentStatus.FAILED
+                status_model = PaymentStatusEnum.FAILED
                 message = f"Payment failed with code: {response_code}"
                 success = False
             # Cập nhật database
@@ -186,7 +192,7 @@ class PaymentService:
 
             payment.vnp_transaction_no = transaction_id
             payment.amount = amount
-            payment.payment_status = status
+            payment.payment_status = status_model
             db.commit()
 
             # Bước 1: Lấy payment_id từ Payment
@@ -203,7 +209,7 @@ class PaymentService:
             vnpay_payment.vnp_card_type = card_type
             vnpay_payment.vnp_pay_date = pay_date
             vnpay_payment.amount = amount
-            vnpay_payment.payment_status = status
+            vnpay_payment.payment_status = status_model
             
             db.commit()
             db.refresh(vnpay_payment)
@@ -215,7 +221,7 @@ class PaymentService:
                 amount=amount,
                 message=message,
                 payment_method=PaymentMethod.VNPAY,
-                payment_status=status
+                payment_status=status_schema
             )
             
         except Exception as e:
