@@ -39,9 +39,12 @@ class PaymentService:
             ticket_price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
             total_amount += ticket_price
         
-        # Chuẩn hóa payment_method về PaymentMethodEnum (hỗ trợ str hoặc schema enum)
+        # Chuẩn hóa payment_method về PaymentMethodEnum
         try:
-            payment_method = PaymentMethodEnum(str(request.payment_method).upper())
+            if isinstance(request.payment_method, str):
+                payment_method = PaymentMethodEnum(request.payment_method)
+            else:
+                payment_method = PaymentMethodEnum(request.payment_method.value)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid payment_method: {request.payment_method}")
         if payment_method  == PaymentMethodEnum.VNPAY:
