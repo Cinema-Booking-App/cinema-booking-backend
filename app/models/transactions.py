@@ -24,16 +24,9 @@ class Transaction(Base):
     payment_ref_code = Column(String(255), nullable=True)
 
     # Quan hệ
-    transaction_tickets = relationship("TransactionTickets", back_populates="transaction")
+    payment_id = Column(Integer, ForeignKey("payments.payment_id"), nullable=True)
+    payment = relationship("Payment", back_populates="transactions")
+
     user = relationship("Users", back_populates="transactions", foreign_keys=[user_id])
-    staff = relationship("Users", foreign_keys=[staff_user_id])  # nếu anh muốn tham chiếu staff riêng
+    staff = relationship("Users", foreign_keys=[staff_user_id]) 
 
-
-class TransactionTickets(Base):
-    __tablename__ = "transaction_tickets"
-
-    transaction_id = Column(Integer, ForeignKey("transactions.transaction_id"), primary_key=True)  # ✅ sửa lại bảng
-    ticket_id = Column(Integer, ForeignKey("tickets.ticket_id"), primary_key=True)
-
-    transaction = relationship("Transaction", back_populates="transaction_tickets")
-    ticket = relationship("Tickets", back_populates="transaction_tickets")

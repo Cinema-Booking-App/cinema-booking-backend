@@ -5,7 +5,7 @@ from app.models.seat_reservations import SeatReservations
 from app.models.seat_templates import SeatTypeEnum
 from app.models.seats import Seats
 from app.models.showtimes import Showtimes
-from app.models.transactions import TransactionStatus, TransactionTickets, Transaction
+from app.models.transactions import TransactionStatus, Transaction
 from app.schemas.tickets import (
     TicketsCreate,
     TicketsResponse,
@@ -74,17 +74,11 @@ def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
             seat_id=ticket_in.seat_id,
             promotion_id=ticket_in.promotion_id,
             price= base_price,
-            status='confirmed'
+            status='confirmed',
+            transaction_id=db_transaction.transaction_id
         )
         db.add(db_ticket)
-        db.flush()  # Để lấy ticket_id
-
-           # 6. Liên kết giao dịch và vé
-        db_transaction_ticket = TransactionTickets(
-            transaction_id=db_transaction.transaction_id,
-            ticket_id=db_ticket.ticket_id
-        )
-        db.add(db_transaction_ticket)
+        db.flush() 
         db.commit()
         db.refresh(db_transaction)
         db.refresh(db_ticket)

@@ -13,6 +13,7 @@ class Tickets(Base):
     __tablename__ = "tickets"
 
     ticket_id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.transaction_id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     showtime_id = Column(Integer, ForeignKey("showtimes.showtime_id"), nullable=False)
     seat_id = Column(Integer, ForeignKey("seats.seat_id"), nullable=False)
@@ -22,10 +23,9 @@ class Tickets(Base):
     status = Column(Enum(TicketStatusEnum), default=TicketStatusEnum.pending, server_default="pending")
     cancelled_at = Column(DateTime, nullable=True)
     # Thời điểm xác thực vé thành công (quét QR)
-    validated_at = Column(DateTime, nullable=True)
+    # validated_at = Column(DateTime, nullable=True)
 
     # Quan hệ
-    transaction_tickets = relationship("TransactionTickets", back_populates="ticket")
     user = relationship("Users", back_populates="tickets")
     showtime = relationship("Showtimes", back_populates="tickets")
     seat = relationship("Seats", back_populates="tickets")
