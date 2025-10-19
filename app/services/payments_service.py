@@ -25,7 +25,7 @@ class PaymentService:
     def __init__(self):
         self.vnpay = VNPay()
 
-    def create_payment(self, db: Session, request: PaymentRequest, client_ip: str):
+    def create_payment(self, db: Session, request: PaymentRequest, client_ip: str,user_id: Optional[int] = None):
         order_id = str(uuid.uuid4())
         reservations = db.query(SeatReservations).filter(
             SeatReservations.session_id == request.session_id,
@@ -33,6 +33,10 @@ class PaymentService:
         ).all()
         if not reservations:
             raise ValueError("Không tìm thấy reservation hợp lệ với session_id đã cho")
+        
+        if user_id is None:
+            raise ValueError("Người dùng chưa được xác định")
+        
         # Tính tổng số tiền từ các reservation
         total_amount = 0
         for reservation in reservations:
@@ -55,11 +59,13 @@ class PaymentService:
                 payment_status=PaymentStatusEnum.PENDING,
                 order_desc=request.order_desc,
                 client_ip=client_ip,
-                vnp_txn_ref=order_id
+                vnp_txn_ref=order_id,
+                user_id=user_id  # Thêm user_id vào đây
             )
         else:
             payment = Payment(
                 order_id=order_id,
+                user_id=user_id,
                 amount=total_amount,
                 payment_method=payment_method,
                 payment_status=PaymentStatusEnum.PENDING,

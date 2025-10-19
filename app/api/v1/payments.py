@@ -5,7 +5,8 @@ from app.core.database import get_db
 from app.services.payments_service import PaymentService
 from app.schemas.payments import PaymentRequest
 from app.utils.response import success_response
-
+from app.core.security import get_current_active_user
+from app.models.users import Users
 router = APIRouter()
 payment_service = PaymentService()
 
@@ -14,11 +15,12 @@ payment_service = PaymentService()
 async def create_vnpay_payment(
     payment_request: PaymentRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_active_user),
 ):
     try:
         client_ip = request.client.host
-        payment = payment_service.create_payment(db, payment_request, client_ip)
+        payment = payment_service.create_payment(db, payment_request, client_ip, user_id=current_user.user_id)
         return success_response(payment)
     
     except ValueError as e:
