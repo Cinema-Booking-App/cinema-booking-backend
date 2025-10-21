@@ -55,28 +55,23 @@ pipeline {
                 script {
                     echo "🚀 Deploying backend container..."
                     sh '''
-                    cd /home/phamvantinh27032004/project
-
-                    # Auto-detect docker compose
-                    if docker compose version >/dev/null 2>&1; then
-                        COMPOSE_CMD="docker compose"
-                    elif docker-compose version >/dev/null 2>&1; then
-                        COMPOSE_CMD="docker-compose"
-                    else
-                        echo "❌ Docker Compose chưa được cài trong hệ thống!"
-                        exit 1
-                    fi
-
-                    echo "🔧 Sử dụng Compose command: $COMPOSE_CMD"
-
-                    $COMPOSE_CMD pull
-                    $COMPOSE_CMD down
-                    $COMPOSE_CMD up -d --remove-orphans
+                    docker rm -f cinema_backend || true
+                    docker run -d \
+                        -p 8000:8000 \
+                        --name cinema_backend \
+                        -e DATABASE_URL="postgresql+psycopg2://postgres:12345678@172.22.0.3:5432/cinema-booking" \
+                        -e SECRET_KEY="supersecretkey" \
+                        -e ACCESS_TOKEN_EXPIRE_MINUTES=30 \
+                        -e REFRESH_TOKEN_EXPIRE_DAYS=7 \
+                        -e ALGORITHM="HS256" \
+                        -e CORS_ALLOW_ORIGINS="http://136.110.0.26:3000" \
+                        phamvantinh/cinema-backend-fastapi:latest
                     docker image prune -f
                     '''
                 }
             }
         }
+
     }
 
     post {
