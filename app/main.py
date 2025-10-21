@@ -6,9 +6,18 @@ from app.utils.response import error_response
 from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos, ranks, payments, websocket
 # from app.core.database import Base, engine
 from app.core.background_tasks import background_tasks
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Cinema Booking API", version="1.0.0")
 setup_middleware(app)
+# Cho phép frontend truy cập
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://136.110.0.26:3000"],  # hoặc ["*"] nếu thử tạm
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 async def startup_event():
