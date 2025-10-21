@@ -13,6 +13,7 @@ class Tickets(Base):
     __tablename__ = "tickets"
 
     ticket_id = Column(Integer, primary_key=True, index=True)
+    booking_code = Column(String(32), index=True, nullable=False)  # Mã đặt vé chung cho các vé cùng đơn
     transaction_id = Column(Integer, ForeignKey("transactions.transaction_id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     showtime_id = Column(Integer, ForeignKey("showtimes.showtime_id"), nullable=False)

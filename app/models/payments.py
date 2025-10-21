@@ -31,7 +31,7 @@ class Payment(Base):
     amount = Column(Float, nullable=False)
     payment_method = Column(Enum(PaymentMethodEnum), nullable=False)
     payment_status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING)
-    
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     payment_url = Column(Text, nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     

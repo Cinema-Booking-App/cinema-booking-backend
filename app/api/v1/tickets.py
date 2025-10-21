@@ -3,11 +3,15 @@ from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.tickets import TicketsCreate, TicketVerifyRequest
-from app.services.tickets_service import create_ticket_directly, generate_ticket_qr, verify_ticket_qr
+from app.services.tickets_service import get_all_tickets,create_ticket_directly, generate_ticket_qr, verify_ticket_qr
 from app.utils.response import success_response
 
 
 router =APIRouter()
+
+@router.get("/tickets")
+def list_tickets( db : Session = Depends(get_db),):
+    return success_response(get_all_tickets(db))
 
 # Nhân viên Tạo vé trực tiếp tại quầy
 @router.post("/tickets/direct",status_code=201)

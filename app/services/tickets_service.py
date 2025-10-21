@@ -19,6 +19,15 @@ from app.core.token_utils import create_token
 from datetime import timedelta
 from jose import jwt, JWTError
 from app.core.config import settings
+
+def get_all_tickets(db: Session):
+    try:
+        tickets = db.query(Tickets).all()
+        return tickets
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
 # Nhân viên tạo vé trực tiếp tại quầy
 # Phần chưa hoàn thiện là chưa giải quyết trường hợp đặt nhiều vé và lưu và tổng thanh toán vẫn đang lưu từng cái 
 def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
