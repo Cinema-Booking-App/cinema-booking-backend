@@ -295,13 +295,14 @@ class PaymentService:
         return db.query(Payment).filter(Payment.order_id == order_id).first()
     
         """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation"""
+
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
         try:
             # 0. Lấy payment để biết payment_id
             payment = self.get_payment_by_order_id(db, order_id)
             if not payment:
                 raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
-            
+
             transaction = db.query(Transaction).filter(
                 Transaction.payment_id == payment.payment_id
             ).first()
@@ -319,7 +320,15 @@ class PaymentService:
             created_tickets = []
             reservation_ids = []
 
-            # Xử lý mỗi reservation 1-1: tạo transaction + ticket cho từng ghế (nếu bạn muốn gom nhiều ghế vào 1 transaction có thể refactor)
+            # Sinh booking_code duy nhất cho đơn đặt vé này
+            import random, string
+            def generate_booking_code():
+                # Ví dụ: BK20251021A1
+                now = datetime.now()
+                rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=2))
+                return f"BK{now.strftime('%Y%m%d')}{rand}"
+            booking_code = generate_booking_code()
+
             for reservation in reservations:
                 reservation_ids.append(reservation.reservation_id)
 
@@ -339,7 +348,7 @@ class PaymentService:
                     reservation.showtime_id
                 )
 
-                # Tạo Ticket
+                # Tạo Ticket với booking_code
                 db_ticket = Tickets(
                     user_id=reservation.user_id,
                     showtime_id=reservation.showtime_id,
@@ -347,11 +356,11 @@ class PaymentService:
                     promotion_id=None,
                     price=correct_price,
                     status='confirmed',
-                    transaction_id=transaction.transaction_id 
+                    transaction_id=transaction.transaction_id,
+                    booking_code=booking_code
                 )
                 db.add(db_ticket)
                 db.flush() # Lấy ticket_id
-
 
                 # Cập nhật reservation
                 reservation.status = "confirmed"
@@ -366,7 +375,8 @@ class PaymentService:
                 "transaction_id": transaction.transaction_id,
                 "vnp_transaction_no": payment_result.transaction_id,
                 "status": "success",
-                "message": "Payment processed successfully and tickets created"
+                "message": "Payment processed successfully and tickets created",
+                "booking_code": booking_code
             }
 
         except HTTPException:
