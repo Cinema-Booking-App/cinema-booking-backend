@@ -25,7 +25,7 @@ pipeline {
                     )]) {
                         echo "🚧 Building Docker image..."
                         sh '''
-                            docker build -t $REGISTRY/$DOCKER_USER/$IMAGE_NAME:latest .
+                            docker build -t $IMAGE_NAME:latest .
                         '''
                     }
                 }
