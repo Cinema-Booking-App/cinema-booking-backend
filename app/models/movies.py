@@ -27,4 +27,4 @@ class Movies(Base):
     status = Column(Enum(MovieStatusEnum), default=MovieStatusEnum.upcoming, server_default='upcoming')  # Trạng thái: upcoming, now_showing, ended
     director = Column(String(255))  # Đạo diễn
     actors = Column(Text)  # Diễn viên
-    created_at = Column(DateTime, server_default=func.now())  # Thời gian tạo
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # Thời gian tạo
