@@ -9,10 +9,6 @@ from app.utils.response import success_response
 
 router =APIRouter()
 
-@router.get("/tickets")
-def list_tickets( db : Session = Depends(get_db),):
-    return success_response(get_all_tickets(db))
-
 # Nhân viên Tạo vé trực tiếp tại quầy
 @router.post("/tickets/direct",status_code=201)
 def add_ticket_directly(
