@@ -9,5 +9,5 @@ class EmailVerification(Base):
     email = Column(String, nullable=False)
     verification_code = Column(String, nullable=False)
     is_used = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now(),server_default=func.now()) 
-    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=func.now(),server_default=func.now()) 
+    expires_at = Column(DateTime(timezone=True), nullable=False)
