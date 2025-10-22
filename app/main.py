@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import uvicorn
 from app.core.middleware import setup_middleware
 from app.utils.response import error_response
-from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos, ranks, payments, websocket
+from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos, ranks, payments, websocket, bookings
 # from app.core.database import Base, engine
 from app.core.background_tasks import background_tasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -41,6 +41,7 @@ app.include_router(promotions.router, prefix="/api/v1", tags=["Promotions"])
 app.include_router(showtimes.router,  prefix="/api/v1",tags=["Showtimes"])
 app.include_router(reservations.router,  prefix="/api/v1",tags=["Reservations"])
 app.include_router(tickets.router,  prefix="/api/v1",tags=["Tickets"])
+app.include_router(bookings.router, prefix="/api/v1", tags=["Bookings"])
 app.include_router(combos.router, prefix="/api/v1", tags=["Combos"])
 app.include_router(ranks.router, prefix="/api/v1", tags=["Ranks"])
 app.include_router(roles.router, prefix="/api/v1", tags=["Roles"])
