@@ -10,14 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Cinema Booking API", version="1.0.0")
 setup_middleware(app)
-# Cho phép frontend truy cập
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://136.110.0.26:3000"],  # hoặc ["*"] nếu thử tạm
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 @app.on_event("startup")
 async def startup_event():
