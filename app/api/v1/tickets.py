@@ -3,7 +3,7 @@ from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.tickets import TicketsCreate, TicketVerifyRequest
-from app.services.tickets_service import get_all_tickets,create_ticket_directly, generate_ticket_qr, verify_ticket_qr
+from app.services.tickets_service import create_ticket_directly, generate_ticket_qr, verify_ticket_qr
 from app.utils.response import success_response
 
 

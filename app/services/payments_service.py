@@ -85,7 +85,7 @@ class PaymentService:
         
         # Tạo transaction khởi tạo (log)
         transaction = Transaction(
-            user_id=None,
+            user_id=user_id,
             staff_user_id=None,
             promotion_id=None,
             total_amount=total_amount,
@@ -349,8 +349,10 @@ class PaymentService:
                 )
 
                 # Tạo Ticket với booking_code
+                # Determine user_id: prefer reservation.user_id, then transaction.user_id, then payment.user_id
+                ticket_user_id = reservation.user_id or transaction.user_id or getattr(payment, 'user_id', None)
                 db_ticket = Tickets(
-                    user_id=reservation.user_id,
+                    user_id=ticket_user_id,
                     showtime_id=reservation.showtime_id,
                     seat_id=reservation.seat_id,
                     promotion_id=None,
