@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     ALGORITHM: str  = "HS256"
     EMAIL_USERNAME: str = ""
     EMAIL_PASSWORD: str = ""
+    
+    # SMTP / Email server settings
+    EMAIL_HOST: str = "smtp.gmail.com"
+    EMAIL_PORT: int = 587
+    EMAIL_SENDER_NAME: str = "CinePlus"
     CORS_ALLOW_ORIGINS: str = ""  # Comma-separated list of origins
     
     # VNPay Configuration
