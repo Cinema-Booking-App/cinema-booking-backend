@@ -47,7 +47,7 @@ async def vnpay_return_callback(
         # Update payment status and process ticket creation
         result = payment_service.update_payment_status(db, payment_result.order_id, payment_result)
 
-        return result
+        return success_response(result)
     except HTTPException:
         raise
     except Exception as e:
