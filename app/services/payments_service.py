@@ -256,6 +256,22 @@ class PaymentService:
                 raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
             
 
+            # Nếu payment đã thành công trước đó, không xử lý lại
+            existing_transaction = db.query(Transaction).filter(Transaction.payment_id == payment.payment_id).first()
+            if existing_transaction and existing_transaction.status == TransactionStatus.success:
+                # Tìm booking code từ các vé đã tạo cho giao dịch này (nếu có)
+                existing_tickets = db.query(Tickets).filter(Tickets.transaction_id == existing_transaction.transaction_id).all()
+                booking_code = existing_tickets[0].booking_code if existing_tickets else None
+                return {
+                    "status": "success",
+                    "payment_status": payment.payment_status.value,
+                    "order_id": order_id,
+                    "vnp_transaction_no": payment.vnp_transaction_no,
+                    "transaction_id": existing_transaction.transaction_id,
+                    "booking_code": booking_code,
+                    "message": "Payment already processed"
+                }
+
             payment.payment_status = PaymentStatusEnum.SUCCESS if payment_result.success else PaymentStatusEnum.FAILED
             db.commit()
 
