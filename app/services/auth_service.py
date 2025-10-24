@@ -20,11 +20,18 @@ from app.services.users_service import pwd_context
 from fastapi.security import HTTPBearer, OAuth2PasswordBearer
 
 # --- Khởi tạo dịch vụ email và OAuth2 scheme ---
+smtp_host = getattr(settings, 'EMAIL_HOST', 'smtp.gmail.com')
+smtp_port = getattr(settings, 'EMAIL_PORT', 587)
+smtp_user = getattr(settings, 'EMAIL_USERNAME', None)
+smtp_pass = getattr(settings, 'EMAIL_PASSWORD', None)
+sender_name = getattr(settings, 'EMAIL_SENDER_NAME', 'CinePlus')
+
 email_service = EmailService(
-    smtp_server="smtp.gmail.com",
-    smtp_port=587,
-    username=settings.EMAIL_USERNAME,
-    password=settings.EMAIL_PASSWORD,
+    smtp_server=smtp_host,
+    smtp_port=smtp_port,
+    username=smtp_user,
+    password=smtp_pass,
+    sender_name=sender_name,
 )
 
 

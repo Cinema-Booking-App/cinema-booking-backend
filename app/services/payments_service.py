@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from datetime import datetime, timezone
 import uuid
-
+import random, string
+from app.services.email_service import EmailService
+from app.models.users import Users
+from app.models.showtimes import Showtimes
+from app.models.movies import Movies
+from app.models.seats import Seats
 from app.core.config import settings
 from app.payments.vnpay import VNPay
 from app.models.payments import Payment, PaymentStatusEnum, PaymentMethodEnum, VNPayPayment
@@ -302,6 +307,10 @@ class PaymentService:
             payment = self.get_payment_by_order_id(db, order_id)
             if not payment:
                 raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
+            # Get user information
+            user = db.query(Users).filter(Users.user_id == payment.user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail=f"User not found for payment")
 
             transaction = db.query(Transaction).filter(
                 Transaction.payment_id == payment.payment_id
@@ -321,7 +330,6 @@ class PaymentService:
             reservation_ids = []
 
             # Sinh booking_code duy nhất cho đơn đặt vé này
-            import random, string
             def generate_booking_code():
                 # Ví dụ: BK20251021A1
                 now = datetime.now()
@@ -372,6 +380,71 @@ class PaymentService:
             transaction.status = TransactionStatus.success
             transaction.payment_ref_code = payment_result.transaction_id
             db.commit()
+
+            # Gửi 1 email tổng hợp cho toàn bộ booking (nhiều ghế trong cùng 1 email)
+            seats_list = []
+            movie_title = 'Unknown'
+            showtime_str = 'Unknown'
+
+            # gather seat codes and determine movie/showtime from first reservation/ticket
+            for reservation in reservations:
+                seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
+                seat_code = seat.seat_code if seat else f"seat_{reservation.seat_id}"
+                seats_list.append(seat_code)
+
+                # grab showtime/movie from first
+                if movie_title == 'Unknown' or showtime_str == 'Unknown':
+                    st = db.query(Showtimes).filter(Showtimes.showtime_id == reservation.showtime_id).first()
+                    if st:
+                        if hasattr(st, 'movie') and getattr(st, 'movie') is not None:
+                            movie_title = getattr(st.movie, 'title', 'Unknown')
+                        else:
+                            mv = db.query(Movies).filter(Movies.movie_id == getattr(st, 'movie_id', None)).first()
+                            movie_title = mv.title if mv else 'Unknown'
+
+                        dt = getattr(st, 'show_datetime', None)
+                        if dt is not None:
+                            try:
+                                showtime_str = dt.strftime('%Y-%m-%d %H:%M')
+                            except Exception:
+                                showtime_str = str(dt)
+                        else:
+                            if hasattr(st, 'start_time'):
+                                showtime_str = str(getattr(st, 'start_time'))
+                            elif hasattr(st, 'show_time'):
+                                showtime_str = str(getattr(st, 'show_time'))
+                            else:
+                                showtime_str = 'Unknown'
+
+            ticket_info = {
+                'booking_id': booking_code,
+                'customer_name': getattr(user, 'full_name', getattr(user, 'name', 'Customer')),
+                'movie_name': movie_title,
+                'showtime': showtime_str,
+                'seats': seats_list
+            }
+
+            smtp_host = getattr(settings, 'EMAIL_HOST', getattr(settings, 'SMTP_SERVER', None))
+            smtp_port = getattr(settings, 'EMAIL_PORT', getattr(settings, 'SMTP_PORT', None))
+            smtp_user = getattr(settings, 'EMAIL_USERNAME', getattr(settings, 'SMTP_USERNAME', None))
+            smtp_pass = getattr(settings, 'EMAIL_PASSWORD', getattr(settings, 'SMTP_PASSWORD', None))
+            sender_name = getattr(settings, 'EMAIL_SENDER_NAME', 'CinePlus')
+
+            email_service = EmailService(
+                smtp_server=smtp_host,
+                smtp_port=smtp_port,
+                username=smtp_user,
+                password=smtp_pass,
+                sender_name=sender_name
+            )
+
+            email_sent = email_service.send_ticket_email(
+                to_email=getattr(user, 'email', None),
+                ticket_info=ticket_info
+            )
+
+            if not email_sent:
+                print(f"Warning: Failed to send booking email for booking {booking_code}")
 
             return {
                 "transaction_id": transaction.transaction_id,
