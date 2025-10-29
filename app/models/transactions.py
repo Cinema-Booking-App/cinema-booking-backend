@@ -20,7 +20,7 @@ class Transaction(Base):
     total_amount = Column(Numeric(10, 2, asdecimal=False), nullable=False)
     payment_method = Column(String(255), nullable=False)
     transaction_time = Column(DateTime, server_default=func.now())
-    status = Column(Enum(TransactionStatus), default=TransactionStatus.pending, server_default="pending")
+    status = Column(Enum(TransactionStatus, name="transaction_status"), default=TransactionStatus.pending, server_default="pending")
     payment_ref_code = Column(String(255), nullable=True)
 
     # Quan hệ
