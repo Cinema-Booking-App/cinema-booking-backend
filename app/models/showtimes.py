@@ -40,13 +40,13 @@ class Showtimes(Base):
     )
     ticket_price = Column(Numeric(10, 2), nullable=False)
     status = Column(
-        Enum(StatusShowtimeEnum),
+        Enum(StatusShowtimeEnum, name="showtimes_status"),
         nullable=False,
         default=StatusShowtimeEnum.active,
         server_default="active",
     )
     language = Column(
-        Enum(LanguageEnum),
+        Enum(LanguageEnum, name="language_type"),
         nullable=False,
         default=LanguageEnum.original,
         server_default="original",

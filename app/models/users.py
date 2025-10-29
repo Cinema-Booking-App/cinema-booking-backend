@@ -25,9 +25,9 @@ class Users(Base):
     # Thông tin cá nhân
     avatar_url = Column(String(500), nullable=True)
     date_of_birth = Column(Date, nullable=True)
-    gender = Column(Enum(GenderEnum), nullable=True)
+    gender = Column(Enum(GenderEnum, name="gender_enum"), nullable=True)
     # Trạng thái & bảo mật
-    status = Column(Enum(UserStatusEnum), default=UserStatusEnum.active, server_default='active', nullable=False)
+    status = Column(Enum(UserStatusEnum, name="user_status"), default=UserStatusEnum.active, server_default='active', nullable=False)
     is_verified = Column(Boolean, default=False, server_default="false")
     last_login = Column(DateTime, nullable=True)
     # Quản lý khách hàng

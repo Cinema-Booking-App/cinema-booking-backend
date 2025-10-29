@@ -21,7 +21,7 @@ class Tickets(Base):
     promotion_id = Column(Integer, ForeignKey("promotions.promotion_id"), nullable=True)
     price = Column(Numeric(10, 2, asdecimal=False), nullable=False)
     booking_time = Column(DateTime, server_default=func.now())
-    status = Column(Enum(TicketStatusEnum), default=TicketStatusEnum.pending, server_default="pending")
+    status = Column(Enum(TicketStatusEnum, name="ticket_status"), default=TicketStatusEnum.pending, server_default="pending")
     cancelled_at = Column(DateTime, nullable=True)
     # Thời điểm xác thực vé thành công (quét QR)
     # validated_at = Column(DateTime, nullable=True)
