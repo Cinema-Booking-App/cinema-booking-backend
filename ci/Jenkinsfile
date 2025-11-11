@@ -11,13 +11,14 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 bat """
-                ssh -o StrictHostKeyChecking=no -i "%PEM_PATH%" %EC2_USER%@%EC2_IP% ^
-                "cd ~/cinema-booking-backend && ^
-                if [ ! -d .git ]; then git clone https://github.com/Cinema-Booking-App/cinema-booking-backend.git .; else git pull origin main; fi && ^
-                python3 -m venv venv && ^
-                source venv/bin/activate && ^
-                pip install -r requirements.txt && ^
-                sudo systemctl restart myfastapi"
+                ssh -o StrictHostKeyChecking=no -i "%PEM_PATH%" %EC2_USER%@%EC2_IP% " \
+                cd ~/cinema-booking-backend && \
+                if [ ! -d .git ]; then git clone https://github.com/Cinema-Booking-App/cinema-booking-backend.git .; else git pull origin main; fi && \
+                python3 -m venv venv && \
+                source venv/bin/activate && \
+                pip install -r requirements.txt && \
+                sudo systemctl restart myfastapi \
+                "
                 """
             }
         }
