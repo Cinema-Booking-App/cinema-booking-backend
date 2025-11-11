@@ -4,39 +4,20 @@ pipeline {
     environment {
         EC2_IP = "16.176.227.13"
         EC2_USER = "ubuntu"
-       PEM_PATH = "D:/DEVOPS/AWS-EC2.pem"
+        PEM_PATH = "D:/DEVOPS/AWS-EC2.pem"
     }
 
     stages {
-        stage('Pull code') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Cinema-Booking-App/cinema-booking-backend.git'
-            }
-        }
-
         stage('Deploy to EC2') {
             steps {
-                // SSH trực tiếp, không dùng sshagent
                 bat """
-                ssh -o StrictHostKeyChecking=no -i %PEM_PATH% %EC2_USER%@%EC2_IP% "
-                    set -e
-                    cd cinema-booking-backend || exit 1
-
-                    # Pull hoặc clone code
-                    if [ ! -d .git ]; then
-                        git clone https://github.com/Cinema-Booking-App/cinema-booking-backend.git .
-                    else
-                        git pull origin main
-                    fi
-
-                    # Cài môi trường
-                    python3 -m venv venv
-                    source venv/bin/activate
-                    pip install -r requirements.txt
-
-                    # Restart service
-                    sudo systemctl restart myfastapi
-                "
+                ssh -o StrictHostKeyChecking=no -i "%PEM_PATH%" %EC2_USER%@%EC2_IP% ^
+                "cd ~/cinema-booking-backend && ^
+                if [ ! -d .git ]; then git clone https://github.com/Cinema-Booking-App/cinema-booking-backend.git .; else git pull origin main; fi && ^
+                python3 -m venv venv && ^
+                source venv/bin/activate && ^
+                pip install -r requirements.txt && ^
+                sudo systemctl restart myfastapi"
                 """
             }
         }
