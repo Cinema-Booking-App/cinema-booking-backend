@@ -7,6 +7,7 @@ def setup_middleware(app: FastAPI):
         "https://ryon.website",
         "https://www.ryon.website",
         "http://localhost:3000",
+        "http://136.110.0.26:3000",
         "http://127.0.0.1:3000",  # Next.js với 127.0.0.1
         "http://localhost:3001",
         "http://127.0.0.1:3001",
