@@ -5,7 +5,7 @@ from app.models.seat_reservations import SeatReservations
 from app.models.seat_templates import SeatTypeEnum
 from app.models.seats import Seats
 from app.models.showtimes import Showtimes
-from app.models.transactions import TransactionStatus, TransactionTickets, Transaction
+from app.models.transactions import TransactionStatus, Transaction
 from app.schemas.tickets import (
     TicketsCreate,
     TicketsResponse,
@@ -19,8 +19,129 @@ from app.core.token_utils import create_token
 from datetime import timedelta
 from jose import jwt, JWTError
 from app.core.config import settings
+
+
+def get_all_bookings(db: Session):
+    """Return bookings grouped by booking_code with summary fields suitable for admin/print views."""
+    try:
+        tickets = db.query(Tickets).all()
+        grouped = {}
+        for t in tickets:
+            code = getattr(t, 'booking_code', None) or 'NO_CODE'
+            if code not in grouped:
+                grouped[code] = {
+                    'code': code,
+                    'tickets': [],
+                    'customer': None,
+                    'phone': None,
+                    'email': None,
+                    'movie': None,
+                    'showtime': None,
+                    'date': None,
+                    'status': None,
+                    'printed': False,
+                    'received': False,
+                    'refunded': False,
+                    'qr': code,
+                }
+            # seat code/type
+            seat_code = getattr(t.seat, 'seat_code', None)
+            seat_type = getattr(t.seat, 'seat_type', None)
+            grouped[code]['tickets'].append({
+                'ticket_id': t.ticket_id,
+                'seat': seat_code,
+                'type': str(seat_type) if seat_type else None,
+                'price': float(t.price) if t.price is not None else None,
+            })
+            # populate customer/email/phone if available from user
+            if t.user:
+                grouped[code]['customer'] = t.user.full_name
+                grouped[code]['email'] = t.user.email
+                grouped[code]['phone'] = t.user.phone
+            # showtime/movie
+            if t.showtime and t.showtime.movie:
+                grouped[code]['movie'] = t.showtime.movie.title
+                # format showtime
+                try:
+                    dt = t.showtime.show_datetime
+                    room = getattr(t.showtime.room, 'room_name', None)
+                    grouped[code]['showtime'] = f"{dt.strftime('%H:%M')} - {room}" if dt else None
+                    grouped[code]['date'] = dt.strftime('%Y-%m-%d') if dt else None
+                except Exception:
+                    pass
+            # status inference: if any ticket is refunded/cancelled
+            if str(t.status) == 'cancelled':
+                grouped[code]['refunded'] = True
+
+        # Convert to list
+        result = []
+        for code, item in grouped.items():
+            # compute seats string
+            seats = [ti['seat'] for ti in item['tickets'] if ti.get('seat')]
+            item['seats'] = ', '.join(seats)
+            # status aggregation
+            item['status'] = 'Đã thanh toán' if any(True for ti in item['tickets']) else 'unknown'
+            result.append(item)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+def get_booking_by_code(db: Session, booking_code: str):
+    try:
+        tickets = db.query(Tickets).filter(Tickets.booking_code == booking_code).all()
+        if not tickets:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Booking not found')
+        # reuse grouping logic but only for one code
+        grouped = {
+            'code': booking_code,
+            'tickets': [],
+            'customer': None,
+            'phone': None,
+            'email': None,
+            'movie': None,
+            'showtime': None,
+            'date': None,
+            'status': None,
+            'printed': False,
+            'received': False,
+            'refunded': False,
+            'qr': booking_code,
+        }
+        for t in tickets:
+            seat_code = getattr(t.seat, 'seat_code', None)
+            seat_type = getattr(t.seat, 'seat_type', None)
+            grouped['tickets'].append({
+                'ticket_id': t.ticket_id,
+                'seat': seat_code,
+                'type': str(seat_type) if seat_type else None,
+                'price': float(t.price) if t.price is not None else None,
+            })
+            if t.user:
+                grouped['customer'] = t.user.full_name
+                grouped['email'] = t.user.email
+                grouped['phone'] = t.user.phone
+            if t.showtime and t.showtime.movie:
+                try:
+                    dt = t.showtime.show_datetime
+                    room = getattr(t.showtime.room, 'room_name', None)
+                    grouped['showtime'] = f"{dt.strftime('%H:%M')} - {room}" if dt else None
+                    grouped['date'] = dt.strftime('%Y-%m-%d') if dt else None
+                    grouped['movie'] = t.showtime.movie.title
+                except Exception:
+                    pass
+            if str(t.status) == 'cancelled':
+                grouped['refunded'] = True
+        grouped['seats'] = ', '.join([ti['seat'] for ti in grouped['tickets'] if ti.get('seat')])
+        grouped['status'] = 'Đã thanh toán'
+        return grouped
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
 # Nhân viên tạo vé trực tiếp tại quầy
-# Phần chưa hoàn thiện là chưa giải quyết trường hợp đặt nhiều vé và lưu và tổng thanh toán vẫn đang lưu từng cái 
 def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
     try:
         # Kiểm tra xem ghế đã được đặt hay chưa
@@ -74,17 +195,11 @@ def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
             seat_id=ticket_in.seat_id,
             promotion_id=ticket_in.promotion_id,
             price= base_price,
-            status='confirmed'
+            status='confirmed',
+            transaction_id=db_transaction.transaction_id
         )
         db.add(db_ticket)
-        db.flush()  # Để lấy ticket_id
-
-           # 6. Liên kết giao dịch và vé
-        db_transaction_ticket = TransactionTickets(
-            transaction_id=db_transaction.transaction_id,
-            ticket_id=db_ticket.ticket_id
-        )
-        db.add(db_transaction_ticket)
+        db.flush() 
         db.commit()
         db.refresh(db_transaction)
         db.refresh(db_ticket)

@@ -1,9 +1,14 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 import smtplib
 import random
 import string
 import ssl
+import qrcode
+import json
+from io import BytesIO
+import base64
 from email.utils import formataddr
 from datetime import datetime
 
@@ -174,4 +179,139 @@ Trân trọng,
 
         except Exception as e:
             print(f"Lỗi khi gửi email xác nhận đặt chỗ: {str(e)}")
+            return False
+
+    def generate_ticket_qr_bytes(self, ticket_info: dict) -> bytes:
+        """Tạo QR code và trả về raw PNG bytes (không base64).
+
+        Tương tự với generate_ticket_qr: dùng 'seats' nếu có, hỗ trợ 'seat' đơn.
+        Trả về bytes ảnh PNG của QR chứa JSON payload + text_vn.
+        """
+
+        # Normalize seats into list[str]
+        seats = []
+        if 'seats' in ticket_info and isinstance(ticket_info['seats'], list):
+            for s in ticket_info['seats']:
+                if isinstance(s, dict):
+                    code = s.get('seat') or s.get('seat_code') or None
+                    seats.append(str(code) if code is not None else str(s))
+                else:
+                    seats.append(str(s))
+        elif ticket_info.get('seat'):
+            seats = [str(ticket_info.get('seat'))]
+
+        seats_display = ', '.join(seats) if seats else ''
+
+        qr_data = f"""
+Mã đặt vé: {ticket_info.get('booking_id')}
+Khách hàng: {ticket_info.get('customer_name')}
+Phim: {ticket_info.get('movie_name')}
+Suất chiếu: {ticket_info.get('showtime')}
+Ghế: {seats_display}
+"""
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def send_ticket_email(self, to_email: str, ticket_info: dict) -> bool:
+        """
+        Gửi email kèm 1 mã QR duy nhất cho toàn bộ vé (danh sách ghế).
+        QR này sẽ chứa toàn bộ thông tin khách hàng và danh sách ghế.
+        """
+        if not to_email:
+            print("send_ticket_email: missing to_email, skip sending")
+            return False
+
+        # Normalize seats into a list of seat codes (strings).
+        # Accepts: ticket_info['seats'] as list[str] or list[dict], or single 'seat' string.
+        seats_codes = []
+        if 'seats' in ticket_info and isinstance(ticket_info['seats'], list):
+            for item in ticket_info['seats']:
+                if isinstance(item, dict):
+                    # common dict shapes: {'seat': 'A1'} or {'seat_code': 'A1'}
+                    code = item.get('seat') or item.get('seat_code') or None
+                    if code is None:
+                        # fallback to string representation
+                        code = str(item)
+                else:
+                    code = str(item)
+                seats_codes.append(code)
+        elif ticket_info.get('seat'):
+            seats_codes = [str(ticket_info.get('seat'))]
+
+        try:
+            msg_root = MIMEMultipart('related')
+            msg_root['From'] = formataddr((self.sender_name, self.username))
+            msg_root['To'] = to_email
+            msg_root['Subject'] = f"Thông tin vé - {ticket_info.get('booking_id', '')}"
+
+            msg_alternative = MIMEMultipart('alternative')
+            msg_root.attach(msg_alternative)
+
+            # Plain summary text
+            seats_display = ', '.join(seats_codes) if seats_codes else ''
+            plain_lines = [
+                f"Mã đặt vé: {ticket_info.get('booking_id', '')}",
+                f"Khách hàng: {ticket_info.get('customer_name', '')}",
+                f"Phim: {ticket_info.get('movie_name', '')}",
+                f"Suất chiếu: {ticket_info.get('showtime', '')}",
+                f"Ghế: {seats_display}"
+            ]
+            plain_text = "\n".join(plain_lines)
+            msg_alternative.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+
+            # Tạo 1 mã QR duy nhất cho toàn bộ vé (seats as list of strings)
+            qr_ticket_info = dict(ticket_info)
+            if seats_codes:
+                qr_ticket_info['seats'] = seats_codes
+            img_bytes = self.generate_ticket_qr_bytes(qr_ticket_info)
+
+            # HTML email
+            html_template = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif;">
+                <h2>Thông tin vé xem phim</h2>
+                <p><strong>Mã đặt vé:</strong> {ticket_info.get('booking_id', '')}</p>
+                <p><strong>Khách hàng:</strong> {ticket_info.get('customer_name', '')}</p>
+                <p><strong>Phim:</strong> {ticket_info.get('movie_name', '')}</p>
+                <p><strong>Suất chiếu:</strong> {ticket_info.get('showtime', '')}</p>
+                <p><strong>Ghế:</strong> {seats_display}</p>
+                <div style="margin:18px 0; text-align:center;">
+                    <img src="cid:ticket_qr" alt="QR toàn bộ vé" style="width:180px; height:180px;"/>
+                </div>
+            </body>
+            </html>
+            """
+            msg_alternative.attach(MIMEText(html_template, 'html', 'utf-8'))
+
+            # Đính kèm QR code (inline và attachment)
+            mime_img = MIMEImage(img_bytes, _subtype='png')
+            mime_img.add_header('Content-ID', '<ticket_qr>')
+            mime_img.add_header('Content-Disposition', 'inline', filename='ticket_qr.png')
+            msg_root.attach(mime_img)
+
+            attachment = MIMEImage(img_bytes, _subtype='png')
+            attachment.add_header('Content-Disposition', 'attachment', filename='ticket_qr.png')
+            msg_root.attach(attachment)
+
+            context = ssl.create_default_context()
+            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
+                server.starttls(context=context)
+                server.login(self.username, self.password)
+                server.sendmail(self.username, to_email, msg_root.as_string())
+
+            return True
+
+        except Exception as e:
+            print(f"Lỗi khi gửi email vé: {str(e)}")
             return False

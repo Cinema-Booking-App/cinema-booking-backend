@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.permissions import Permissions
+from app.models.permissions import Permission
 from app.models.role import Role, UserRole
 from app.schemas.roles import PermissionCreate, PermissionResponse, RoleCreate, RoleResponse
 
@@ -13,7 +13,7 @@ def get_list_roles(db: Session):
         db.query(
             Role,
             func.count(UserRole.user_id).label("user_count"),
-            func.count(Permissions.permission_id).label("permission_count")
+            func.count(Permission.permission_id).label("permission_count")
         )
         .outerjoin(UserRole, Role.role_id == UserRole.role_id)
         .outerjoin(Role.permissions)
@@ -49,8 +49,8 @@ def create_role_with_permissions( data: RoleCreate, db: Session):
         )
 
         # Bước 2: Tìm các đối tượng Permission từ các ID
-        permissions_to_add = db.query(Permissions).filter(
-            Permissions.permission_id.in_(data.permission_ids)
+        permissions_to_add = db.query(Permission).filter(
+            Permission.permission_id.in_(data.permission_ids)
         ).all()
         
         # Bước 3: Gán trực tiếp danh sách các đối tượng Permission
@@ -81,7 +81,7 @@ def delete_role( role_id: int,db: Session):
 
 # Danh sách quyền
 def get_all_permissions(db: Session):
-    permissions = db.query(Permissions).all()
+    permissions = db.query(Permission).all()
     return [PermissionResponse.from_orm(permission) for permission in permissions]
 
 # Tạo quyền mới
@@ -89,7 +89,7 @@ def get_all_permissions(db: Session):
 def create_permissions(db: Session, data: PermissionCreate):
     try:
         # Tạo đối tượng Movie từ dữ liệu đầu vào
-        db_movie = Permissions(**data.dict(exclude_unset=True))
+        db_movie = Permission(**data.dict(exclude_unset=True))
         # Thêm vào session
         db.add(db_movie)
         # Lưu thay đổi vào database

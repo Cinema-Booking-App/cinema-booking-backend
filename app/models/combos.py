@@ -30,7 +30,7 @@ class Combo(Base):
     description = Column(Text)
     price = Column(Numeric(10, 2), nullable=False)
     image_url = Column(String(255))
-    status = Column(Enum(ComboStatusEnum), default=ComboStatusEnum.active)
+    status = Column(Enum(ComboStatusEnum, name="combo_status"), default=ComboStatusEnum.active)
 
     # Quan hệ với ComboItem
     combo_items = relationship("ComboItem", back_populates="combo")

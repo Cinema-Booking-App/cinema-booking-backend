@@ -12,7 +12,7 @@ class Role(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     users = relationship("Users", secondary="user_roles", back_populates="roles")
-    permissions = relationship("Permissions", secondary=role_permissions, back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
 
 
 class UserRole(Base):
