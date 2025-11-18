@@ -24,7 +24,7 @@ class Transaction(Base):
     payment_ref_code = Column(String(255), nullable=True)
 
     # Quan hệ
-    payment_id = Column(Integer, ForeignKey("payments.payment_id"), nullable=True)
+   # payment_id = Column(Integer, ForeignKey("payments.payment_id"), nullable=True)
     payment = relationship("Payment", back_populates="transactions")
 
     user = relationship("Users", back_populates="transactions", foreign_keys=[user_id])

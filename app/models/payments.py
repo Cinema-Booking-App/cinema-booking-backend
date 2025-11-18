@@ -34,7 +34,11 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     payment_url = Column(Text, nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=True)
-    
+    transactions = relationship(
+        "Transaction",
+        back_populates="payment",
+        foreign_keys="Transaction.payment_id"   # chỉ dùng cột payment_id cho relationship này
+    )    
     # Order information
     order_desc = Column(Text, nullable=True)
     client_ip = Column(String(45), nullable=True)
