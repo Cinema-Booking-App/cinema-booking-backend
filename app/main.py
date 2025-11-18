@@ -6,14 +6,29 @@ from app.utils.response import error_response
 from app.api.v1 import auth, movies, reservations, roles, rooms, seat_layouts, showtimes, theaters, tickets, users, promotions, combos, ranks, payments, websocket, bookings
 # from app.core.database import Base, engine
 from app.core.background_tasks import background_tasks
+from app.core.database import SessionLocal
+from app.core.init_data import initialize_default_data
 from fastapi.middleware.cors import CORSMiddleware
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Cinema Booking API", version="1.0.0")
 setup_middleware(app)
 
 @app.on_event("startup")
 async def startup_event():
-    """Start background tasks when the application starts"""
+    """Start background tasks and initialize default data when the application starts"""
+    # Khởi tạo dữ liệu mặc định (roles và admin)
+    db = SessionLocal()
+    try:
+        initialize_default_data(db)
+    except Exception as e:
+        logger.error(f"Lỗi khởi tạo dữ liệu: {e}")
+    finally:
+        db.close()
+    
+    # Start background tasks
     background_tasks.start()
 
 @app.on_event("shutdown")
