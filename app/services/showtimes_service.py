@@ -145,6 +145,74 @@ def create_showtime(db: Session, showtime_in: ShowtimesCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Tạo nhiều lịch chiếu cùng lúc
+def bulk_create_showtimes(db: Session, showtimes_in: list[ShowtimesCreate]):
+    created_showtimes = []
+    errors = []
+    
+    for idx, showtime_in in enumerate(showtimes_in):
+        try:
+            # Kiểm tra theater tồn tại
+            theater = db.query(Theaters).filter(
+                Theaters.theater_id == showtime_in.theater_id
+            ).first()
+            if not theater:
+                errors.append(f"Showtime {idx + 1}: Theater ID {showtime_in.theater_id} not found")
+                continue
+            
+            # Kiểm tra room tồn tại
+            room = db.query(Rooms).filter(
+                Rooms.room_id == showtime_in.room_id
+            ).first()
+            if not room:
+                errors.append(f"Showtime {idx + 1}: Room ID {showtime_in.room_id} not found")
+                continue
+            
+            # Kiểm tra trùng lịch
+            existing = db.query(Showtimes).filter(
+                Showtimes.room_id == showtime_in.room_id,
+                Showtimes.show_datetime == showtime_in.show_datetime
+            ).first()
+            
+            if existing:
+                errors.append(f"Showtime {idx + 1}: Duplicate showtime for room {room.room_name} at {showtime_in.show_datetime}")
+                continue
+            
+            # Tạo showtime mới
+            showtime = Showtimes(**showtime_in.dict(exclude_unset=True))
+            db.add(showtime)
+            created_showtimes.append(showtime)
+            
+        except Exception as e:
+            errors.append(f"Showtime {idx + 1}: {str(e)}")
+            continue
+    
+    # Commit nếu có ít nhất 1 showtime thành công
+    if created_showtimes:
+        try:
+            db.commit()
+            for showtime in created_showtimes:
+                db.refresh(showtime)
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to commit showtimes: {str(e)}")
+    
+    # Raise error nếu không tạo được showtime nào
+    if not created_showtimes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to create any showtimes. Errors: {'; '.join(errors)}"
+        )
+    
+    # Trả về kết quả với thông tin errors nếu có
+    result = [ShowtimesResponse.from_orm(s) for s in created_showtimes]
+    if errors:
+        # Log errors nhưng vẫn trả về showtimes đã tạo thành công
+        print(f"Some showtimes failed to create: {errors}")
+    
+    return result
+
+
 # Xóa xuất chiếu theo id
 def delete_showtime(db: Session, showtime_id: int):
     try:

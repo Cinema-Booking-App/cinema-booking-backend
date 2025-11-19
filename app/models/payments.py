@@ -27,7 +27,6 @@ class Payment(Base):
     }
     payment_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(String(100), unique=True, index=True, nullable=False)
-    transaction_id = Column(Integer, ForeignKey("transactions.transaction_id"))
     amount = Column(Float, nullable=False)
     payment_method = Column(Enum(PaymentMethodEnum, name="payment_method"), nullable=False)
     payment_status = Column(Enum(PaymentStatusEnum, name="payment_status"), default=PaymentStatusEnum.PENDING)
@@ -44,7 +43,7 @@ class Payment(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Mối quan hệ transactions và seat_reservations
-    transactions = relationship("Transaction", back_populates="payment")
+    transactions = relationship("Transaction", back_populates="payment", foreign_keys="[Transaction.payment_id]")
     seat_reservations = relationship("SeatReservations", back_populates="payment")
 
     def __repr__(self):
