@@ -5,8 +5,7 @@ from datetime import date, datetime
 class MovieBase(BaseModel):
     title: str
     genre: Optional[str] = None
-    duration: int
-    year: Optional[int] = None
+    duration: Optional[int] = 120  # Default 120 phút nếu không có
     age_rating: Optional[str] = None
     description: Optional[str] = None
     release_date: Optional[date] = None
@@ -23,7 +22,6 @@ class MovieUpdate(BaseModel):
     title: Optional[str] = None
     genre: Optional[str] = None
     duration: Optional[int] = None
-    year: Optional[int] = None
     age_rating: Optional[str] = None
     description: Optional[str] = None
     release_date: Optional[date] = None
@@ -39,3 +37,6 @@ class MovieResponse(MovieBase):
 
     class Config:
         from_attributes = True
+
+class MoviesImport(BaseModel):
+    movies: list[MovieCreate]
