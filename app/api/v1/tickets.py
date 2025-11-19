@@ -14,7 +14,7 @@ router =APIRouter()
 def add_ticket_directly(
     ticket_in : TicketsCreate,
     db : Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return create_ticket_directly(ticket_in=ticket_in ,db=db)
 
@@ -24,7 +24,7 @@ def add_ticket_directly(
 def create_ticket_qr(
     ticket_id: int,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return success_response(generate_ticket_qr(db, ticket_id))
 
@@ -34,6 +34,6 @@ def create_ticket_qr(
 def verify_ticket_by_qr(
     verify_in: TicketVerifyRequest,
     db: Session = Depends(get_db),
-    _ = Depends(get_current_active_user),
+    # _ = Depends(get_current_active_user),
 ):
     return success_response(verify_ticket_qr(db, verify_in))

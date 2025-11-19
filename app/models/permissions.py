@@ -12,7 +12,7 @@ role_permissions = Table(
     Column('permission_id', Integer, ForeignKey('permissions.permission_id'), primary_key=True)
 )
 
-class Permissions(Base):
+class Permission(Base):
     __tablename__ = "permissions"
     permission_id = Column(Integer, primary_key=True)
     permission_name = Column(String(100), unique=True, nullable=False)

@@ -17,23 +17,14 @@ class Transaction(Base):
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     staff_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)  # Nhân viên thực hiện giao dịch
     promotion_id = Column(Integer, ForeignKey("promotions.promotion_id"), nullable=True)
+    payment_id = Column(Integer, ForeignKey("payments.payment_id"), nullable=True)  # Di chuyển lên để __init__ nhận được
     total_amount = Column(Numeric(10, 2, asdecimal=False), nullable=False)
     payment_method = Column(String(255), nullable=False)
     transaction_time = Column(DateTime, server_default=func.now())
-    status = Column(Enum(TransactionStatus), default=TransactionStatus.pending, server_default="pending")
+    status = Column(Enum(TransactionStatus, name="transaction_status"), default=TransactionStatus.pending, server_default="pending")
     payment_ref_code = Column(String(255), nullable=True)
 
-    # Quan hệ
-    transaction_tickets = relationship("TransactionTickets", back_populates="transaction")
+    payment = relationship("Payment", back_populates="transactions")
     user = relationship("Users", back_populates="transactions", foreign_keys=[user_id])
-    staff = relationship("Users", foreign_keys=[staff_user_id])  # nếu anh muốn tham chiếu staff riêng
+    staff = relationship("Users", foreign_keys=[staff_user_id]) 
 
-
-class TransactionTickets(Base):
-    __tablename__ = "transaction_tickets"
-
-    transaction_id = Column(Integer, ForeignKey("transactions.transaction_id"), primary_key=True)  # ✅ sửa lại bảng
-    ticket_id = Column(Integer, ForeignKey("tickets.ticket_id"), primary_key=True)
-
-    transaction = relationship("Transaction", back_populates="transaction_tickets")
-    ticket = relationship("Tickets", back_populates="transaction_tickets")

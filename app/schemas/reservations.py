@@ -32,4 +32,18 @@ class SeatReservationsResponse(SeatReservationsBase):
     reservation_id: int
     reserved_at: datetime
     expires_at: datetime
+
+class CancelReservationRequest(BaseModel):
+    showtime_id: int
+    seat_ids: list[int]
+    session_id: str
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "showtime_id": 7,
+                "seat_ids": [1, 2, 3],
+                "session_id": "abc-123-def"
+            }
+        }
     

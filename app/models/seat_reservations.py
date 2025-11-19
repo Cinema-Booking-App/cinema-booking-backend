@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, text, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, text, UniqueConstraint
 from app.core.database import Base
+from sqlalchemy.orm import relationship
 
 class SeatReservations(Base):
     __tablename__ = "seat_reservations"
@@ -13,3 +14,7 @@ class SeatReservations(Base):
     status = Column(String(50), nullable=False, default="pending") 
     transaction_id = Column(Integer, nullable=True)
     __table_args__ = (UniqueConstraint('seat_id', 'showtime_id'),)
+
+    # Chỉ liên kết với Payment
+    payment_id = Column(Integer, ForeignKey("payments.payment_id", ondelete="SET NULL"))
+    payment = relationship("Payment", back_populates="seat_reservations")
