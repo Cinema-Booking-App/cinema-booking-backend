@@ -44,7 +44,7 @@ class Payment(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Mối quan hệ transactions và seat_reservations
-    transactions = relationship("Transaction", back_populates="payment")
+    transactions = relationship("Transaction", back_populates="payment", foreign_keys="[Transaction.payment_id]")
     seat_reservations = relationship("SeatReservations", back_populates="payment")
 
     def __repr__(self):

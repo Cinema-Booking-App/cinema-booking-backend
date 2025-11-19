@@ -173,9 +173,30 @@ def login(db: Session, user_in: UserLogin, request: Request):
     """Xử lý logic đăng nhập."""
     user = db.query(Users).filter(Users.email == user_in.email).first()
 
-    if not user or not pwd_context.verify(
-        user_in.password, getattr(user, "password_hash", "")
-    ):
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email hoặc mật khẩu không trùng khớp",
+        )
+    
+    # Kiểm tra và xử lý mật khẩu hash
+    password_hash = getattr(user, "password_hash", "")
+    if not password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Lỗi hệ thống: Mật khẩu không hợp lệ",
+        )
+    
+    try:
+        password_valid = pwd_context.verify(user_in.password, password_hash)
+    except ValueError as e:
+        # Mật khẩu trong DB không đúng format bcrypt
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi hệ thống: Mật khẩu trong database không hợp lệ. Vui lòng liên hệ admin để reset mật khẩu.",
+        )
+    
+    if not password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email hoặc mật khẩu không trùng khớp",

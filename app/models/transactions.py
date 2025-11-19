@@ -24,7 +24,7 @@ class Transaction(Base):
     status = Column(Enum(TransactionStatus, name="transaction_status"), default=TransactionStatus.pending, server_default="pending")
     payment_ref_code = Column(String(255), nullable=True)
 
-    payment = relationship("Payment", back_populates="transactions")
+    payment = relationship("Payment", back_populates="transactions", foreign_keys=[payment_id])
     user = relationship("Users", back_populates="transactions", foreign_keys=[user_id])
-    staff = relationship("Users", foreign_keys=[staff_user_id]) 
+    staff = relationship("Users", foreign_keys=[staff_user_id])
 
