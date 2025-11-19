@@ -147,7 +147,6 @@ def create_showtime(db: Session, showtime_in: ShowtimesCreate):
 
 # Tạo nhiều lịch chiếu cùng lúc
 def bulk_create_showtimes(db: Session, showtimes_in: list[ShowtimesCreate]):
-    """Tạo nhiều lịch chiếu cùng lúc với error handling tốt hơn"""
     created_showtimes = []
     errors = []
     
