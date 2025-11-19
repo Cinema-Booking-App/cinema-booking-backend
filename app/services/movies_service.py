@@ -86,6 +86,63 @@ def delete_movie(db: Session, movie_id: int):
         raise HTTPException(status_code=500, detail=f"{str(e)}")
 
 
+# Import nhiều phim cùng lúc
+def bulk_create_movies(db: Session, movies_in: list[MovieCreate]):
+    created_movies = []
+    failed_movies = []
+    
+    print(f"Starting import of {len(movies_in)} movies...")
+    
+    for i, movie_data in enumerate(movies_in):
+        try:
+            print(f"Processing movie {i+1}: {movie_data.title}")
+            # Tạo đối tượng Movie từ dữ liệu đầu vào
+            movie_dict = movie_data.dict(exclude_unset=True)
+            print(f"Movie data: {movie_dict}")
+            
+            db_movie = Movies(**movie_dict)
+            db.add(db_movie)
+            db.flush()  # Flush để lấy ID nhưng chưa commit
+            
+            print(f"Movie {movie_data.title} added with ID: {db_movie.movie_id}")
+            
+            created_movies.append({
+                "title": db_movie.title,
+                "movie_id": db_movie.movie_id,
+                "status": "success"
+            })
+        except Exception as e:
+            print(f"Error creating movie {movie_data.title}: {str(e)}")
+            # Rollback transaction hiện tại để tiếp tục với movie tiếp theo
+            db.rollback()
+            # Bắt đầu transaction mới
+            db.begin()
+            failed_movies.append({
+                "title": movie_data.title,
+                "error": str(e),
+                "status": "failed"
+            })
+    
+    # Commit tất cả các phim thành công
+    try:
+        print(f"Committing {len(created_movies)} movies to database...")
+        db.commit()
+        print("Commit successful!")
+    except Exception as e:
+        print(f"Commit failed: {str(e)}")
+        db.rollback()
+    
+    result = {
+        "total": len(movies_in),
+        "success": len(created_movies),
+        "failed": len(failed_movies),
+        "created_movies": created_movies,
+        "failed_movies": failed_movies
+    }
+    print(f"Import result: {result}")
+    return result
+
+
 # Cập nhật thông tin phim theo id
 def update_movie(db: Session, movie_id: int, movie_in: MovieUpdate):
     try:

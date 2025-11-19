@@ -8,7 +8,8 @@ from app.services.showtimes_service import (
     get_showtimes_by_theater, 
     get_showtimes_by_movie,
     get_showtimes_by_movie_and_theater,
-    create_showtime
+    create_showtime,
+    bulk_create_showtimes
 )
 from app.schemas.showtimes import ShowtimesCreate
 from typing import Optional
@@ -52,3 +53,9 @@ def list_showtimes_by_movie_and_theater(
 def add_showtime(showtime_in: ShowtimesCreate, db: Session = Depends(get_db)):
     showtime = create_showtime(db, showtime_in)
     return success_response(showtime)
+
+@router.post("/showtimes/bulk")
+def add_showtimes_bulk(showtimes_in: list[ShowtimesCreate], db: Session = Depends(get_db)):
+    """Tạo nhiều lịch chiếu cùng lúc"""
+    showtimes = bulk_create_showtimes(db, showtimes_in)
+    return success_response(showtimes)

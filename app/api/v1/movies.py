@@ -3,10 +3,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.services.movies_service import *
-from app.schemas.movies import MovieCreate, MovieUpdate
+from app.schemas.movies import MovieCreate, MovieUpdate, MoviesImport
 from fastapi import APIRouter
 from app.utils.response import success_response
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter()
 
@@ -63,3 +63,16 @@ def edit_movie(
     # _ = Depends(get_current_active_user),
 ):
     return success_response(update_movie(db, movie_id, movie_in))
+
+
+# Import nhiều phim cùng lúc
+@router.post("/movies/import")
+def import_movies(
+    movies_data: MoviesImport,
+    db: Session = Depends(get_db),
+    # _ = Depends(get_current_active_user),
+):
+    print(f"Received {len(movies_data.movies)} movies for import")
+    for i, movie in enumerate(movies_data.movies):
+        print(f"Movie {i+1}: {movie.title}, duration: {movie.duration}")
+    return success_response(bulk_create_movies(db, movies_data.movies))
