@@ -49,6 +49,6 @@ jobs:
             source venv/bin/activate  # Activate virtual environment
             pip install --upgrade pip
             pip install -r requirements.txt
-            pm2 restart cinema-booking-backend || pm2 start "uvicorn main:app --host 0.0.0.0 --port 8000" --name "cinema-booking-backend" --interpreter python3
-            pm2 save
-            pm2 status
+            sudo systemctl daemon-reload
+            sudo systemctl restart fastapi
+            sudo systemctl status fastapi --no-pager
