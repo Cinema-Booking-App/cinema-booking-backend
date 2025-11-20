@@ -67,8 +67,8 @@ async def vnpay_ipn_callback(
         # Get query parameters (VNPay sends data as query parameters)
         query_params = dict(request.query_params)
         
-        # Process IPN callback
-        payment_result = payment_service.handle_vnpay_callback(query_params)
+        # Process IPN callback (pass db for signature validation & DB updates)
+        payment_result = payment_service.handle_vnpay_callback(db, query_params)
         
         # Update payment status and process ticket creation
         result = payment_service.update_payment_status(db, payment_result.order_id, payment_result)

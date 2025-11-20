@@ -272,40 +272,83 @@ class PaymentService:
                     "message": "Payment already processed"
                 }
 
-            payment.payment_status = PaymentStatusEnum.SUCCESS if payment_result.success else PaymentStatusEnum.FAILED
-            db.commit()
-
-            # Nếu là thanh toán VNPay, cập nhật trường vnp_transaction_no ở VNPayPayment
-            vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
-            if vnpay_payment:
-                vnpay_payment.vnp_transaction_no = payment_result.transaction_id
+            # 2. Xử lý thanh toán thất bại
+            if not payment_result.success:
+                payment.payment_status = PaymentStatusEnum.FAILED
                 db.commit()
-            
-            
-            # 3. Nếu thanh toán thành công, xử lý tạo transaction và ticket
-            if payment_result.success:
-                success_result = self.process_successful_payment(db, order_id, payment_result)
-                
-                # 4. Sau khi tạo transaction thành công, mới cập nhật payment.transaction_id
-                if success_result.get("transaction_id"):
-                    payment.transaction_id = success_result["transaction_id"]
-                    db.commit()
-                
-                return {
-                    "status": "success",
-                    "payment_status": payment.payment_status.value,
-                    "order_id": order_id,
-                    "vnp_transaction_no": payment.vnp_transaction_no,
-                    **success_result
-                }
-            else:
                 return {
                     "status": "failed",
                     "payment_status": payment.payment_status.value,
                     "order_id": order_id,
-                    "vnp_transaction_no": payment.vnp_transaction_no,
+                    "vnp_transaction_no": getattr(payment, 'vnp_transaction_no', None),
                     "message": "Payment failed"
                 }
+            
+            # 3. Thanh toán thành công - VALIDATE reservations TRƯỚC KHI commit payment success
+            # Kiểm tra có reservations hợp lệ không
+            reservations = db.query(SeatReservations).filter(
+                SeatReservations.payment_id == payment.payment_id,
+                SeatReservations.status == 'pending'
+            ).all()
+            
+            if not reservations:
+                # KHÔNG có reservations → KHÔNG CHO PHÉP payment thành công
+                payment.payment_status = PaymentStatusEnum.FAILED
+                db.commit()
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot process payment: No valid reservations found. Payment has been marked as FAILED."
+                )
+            
+            # Kiểm tra reservations có còn hạn không
+            # Sử dụng timezone-aware datetime để so sánh đúng
+            current_time = datetime.now(timezone.utc)
+            expired_reservations = []
+            for res in reservations:
+                expires_at = res.expires_at
+                # Đảm bảo expires_at là timezone-aware
+                if not hasattr(expires_at, 'tzinfo') or expires_at.tzinfo is None:
+                    # Nếu naive, giả định là UTC
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                elif expires_at.tzinfo != timezone.utc:
+                    # Convert về UTC nếu là timezone khác
+                    expires_at = expires_at.astimezone(timezone.utc)
+                
+                if expires_at < current_time:
+                    expired_reservations.append(res.reservation_id)
+            
+            if expired_reservations:
+                # Có reservations hết hạn → KHÔNG CHO PHÉP payment thành công
+                payment.payment_status = PaymentStatusEnum.FAILED
+                db.commit()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{len(expired_reservations)} reservation(s) have expired. Cannot process payment. Payment has been marked as FAILED."
+                )
+            
+            # 4. Có reservations hợp lệ → Tiến hành tạo vé
+            # Cập nhật VNPay transaction number trước
+            vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
+            if vnpay_payment and payment_result.transaction_id:
+                vnpay_payment.vnp_transaction_no = payment_result.transaction_id
+                db.commit()
+            
+            # Tạo tickets
+            success_result = self.process_successful_payment(db, order_id, payment_result)
+            
+            # 5. CHỈ CẬP NHẬT payment success SAU KHI tạo vé thành công
+            payment.payment_status = PaymentStatusEnum.SUCCESS
+            if success_result.get("transaction_id"):
+                payment.transaction_id = success_result["transaction_id"]
+            db.commit()
+            
+            return {
+                "status": "success",
+                "payment_status": payment.payment_status.value,
+                "order_id": order_id,
+                "vnp_transaction_no": getattr(payment, 'vnp_transaction_no', None),
+                **success_result
+            }
             
         except Exception as e:
             db.rollback()
@@ -318,29 +361,41 @@ class PaymentService:
         """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation"""
 
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
+        """
+        Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation
+        
+        LƯU Ý: Method này CHỈ được gọi SAU KHI đã validate reservations trong update_payment_status
+        """
         try:
             # 0. Lấy payment để biết payment_id
             payment = self.get_payment_by_order_id(db, order_id)
             if not payment:
                 raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
+            
             # Get user information
             user = db.query(Users).filter(Users.user_id == payment.user_id).first()
             if not user:
                 raise HTTPException(status_code=404, detail=f"User not found for payment")
 
+            # Get transaction
             transaction = db.query(Transaction).filter(
                 Transaction.payment_id == payment.payment_id
             ).first()
             if not transaction:
                 raise HTTPException(status_code=404, detail=f"Transaction not found for payment_id: {payment.payment_id}")
 
+            # Get reservations (đã được validate ở update_payment_status, nhưng check lại để chắc chắn)
             reservations = db.query(SeatReservations).filter(
                 SeatReservations.payment_id == payment.payment_id,
                 SeatReservations.status == 'pending'
             ).all()
 
             if not reservations:
-                raise HTTPException(status_code=404, detail=f"No pending reservations found for payment_id: {payment.payment_id}")
+                # Không nên xảy ra vì đã validate ở trên, nhưng để đề phòng
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"CRITICAL: No pending reservations found for payment_id: {payment.payment_id}. This should have been caught earlier."
+                )
 
             created_tickets = []
             reservation_ids = []

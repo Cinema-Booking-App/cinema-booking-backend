@@ -136,6 +136,7 @@ CREATE TABLE promotions (
     "max_usage" INTEGER,
     "used_count" INTEGER DEFAULT 0,
     "description" TEXT,
+    "is_active" BOOLEAN DEFAULT TRUE,
     "created_at" TIMESTAMP
     WITH
         TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -148,7 +149,7 @@ CREATE TABLE combos (
     "description" TEXT,
     "price" NUMERIC(10, 2) NOT NULL,
     "image_url" VARCHAR(255),
-    "status" combo_status DEFAULT 'active',
+    "status" combo_status DEFAULT 'active'
 );
 
 -- Bảng ComboItems (Chi tiết các thành phần trong Combo)
@@ -242,7 +243,7 @@ CREATE TABLE showtimes (
     "showtime_id" SERIAL PRIMARY KEY,
     "movie_id" INTEGER NOT NULL,
     "room_id" INTEGER NOT NULL,
-    "theater_id " INTEGER NOT NULL,
+    "theater_id" INTEGER NOT NULL,
     "show_datetime" TIMESTAMP
     WITH
         TIME ZONE NOT NULL,
@@ -275,7 +276,6 @@ CREATE TABLE transactions (
 );
 
 -- Bảng Payments (Chi tiết thanh toán)
--- Bảng Payments (Chi tiết thanh toán)
 CREATE TABLE payments (
     payment_id SERIAL PRIMARY KEY,
     order_id VARCHAR(100) UNIQUE NOT NULL,  -- Mã đơn hàng duy nhất
@@ -287,6 +287,8 @@ CREATE TABLE payments (
     -- Thông tin chung
     order_desc TEXT,
     client_ip VARCHAR(45),
+    payment_url TEXT,
+    expires_at TIMESTAMP WITH TIME ZONE,
     
     -- User information
     user_id INTEGER,
@@ -310,6 +312,7 @@ CREATE TABLE vnpay_payments (
 -- Bảng Tickets (Vé)
 CREATE TABLE tickets (
     "ticket_id" SERIAL PRIMARY KEY,
+    "booking_code" VARCHAR(32) NOT NULL,
     "user_id" INTEGER, -- ID của khách hàng sở hữu vé
     "showtime_id" INTEGER NOT NULL,
     "transaction_id" INTEGER, -- Liên kết với giao dịch (nếu đã thanh toán)
@@ -324,14 +327,6 @@ CREATE TABLE tickets (
     WITH
         TIME ZONE, -- Thời điểm hủy vé
         UNIQUE ("showtime_id", "seat_id") -- Đảm bảo mỗi ghế trong một suất chiếu chỉ có một vé được xác nhận
-);
-
--- Bảng TransactionCombos (Liên kết Giao dịch và Combo)
-CREATE TABLE transaction_combos (
-    "transaction_id" INTEGER NOT NULL,
-    "combo_id" INTEGER,
-    "quantity" INTEGER NOT NULL,
-    PRIMARY KEY ("transaction_id", "combo_id")
 );
 
 -- Bảng SeatReservations (Giữ ghế tạm thời)
@@ -416,6 +411,8 @@ CREATE INDEX idx_tickets_showtime_id ON tickets (showtime_id);
 
 CREATE INDEX idx_tickets_seat_id ON tickets (seat_id);
 
+CREATE INDEX idx_tickets_booking_code ON tickets (booking_code);
+
 CREATE INDEX idx_transactions_user_id ON transactions (user_id);
 
 CREATE INDEX idx_transactions_staff_user_id ON transactions (staff_user_id);
@@ -434,13 +431,15 @@ CREATE INDEX idx_payments_order_id ON payments (order_id);
 
 CREATE INDEX idx_payments_transaction_id ON payments (transaction_id);
 
-CREATE INDEX idx_payments_vnp_transaction_no ON payments (vnp_transaction_no);
-
 CREATE INDEX idx_payments_payment_status ON payments (payment_status);
 
 CREATE INDEX idx_payments_user_id ON payments (user_id);
 
 CREATE INDEX idx_payments_created_at ON payments (created_at);
+
+CREATE INDEX idx_vnpay_payments_vnp_transaction_no ON vnpay_payments (vnp_transaction_no);
+
+CREATE INDEX idx_vnpay_payments_vnp_txn_ref ON vnpay_payments (vnp_txn_ref);
 
 -- Phần 4: Thêm các Ràng buộc Khóa ngoại (Foreign Keys)
 -- Đảm bảo các bảng đã được tạo trước khi thêm FK
@@ -502,18 +501,6 @@ ADD CONSTRAINT fk_transactions_staff_user_id FOREIGN KEY (staff_user_id) REFEREN
 
 ALTER TABLE transactions
 ADD CONSTRAINT fk_transactions_promotion_id FOREIGN KEY (promotion_id) REFERENCES promotions (promotion_id) ON DELETE SET NULL;
-
-ALTER TABLE transaction_tickets
-ADD CONSTRAINT fk_transaction_tickets_transaction_id FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE;
-
-ALTER TABLE transaction_tickets
-ADD CONSTRAINT fk_transaction_tickets_ticket_id FOREIGN KEY (ticket_id) REFERENCES tickets (ticket_id) ON DELETE CASCADE;
-
-ALTER TABLE transaction_combos
-ADD CONSTRAINT fk_transaction_combos_transaction_id FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE;
-
-ALTER TABLE transaction_combos
-ADD CONSTRAINT fk_transaction_combos_combo_id FOREIGN KEY (combo_id) REFERENCES combos (combo_id) ON DELETE SET NULL;
 
 ALTER TABLE seat_reservations
 ADD CONSTRAINT fk_seat_reservations_seat_id FOREIGN KEY (seat_id) REFERENCES seats (seat_id) ON DELETE CASCADE;
@@ -588,9 +575,6 @@ ADD CONSTRAINT chk_tickets_price CHECK (price >= 0);
 
 ALTER TABLE transactions
 ADD CONSTRAINT chk_transactions_total_amount CHECK (total_amount >= 0);
-
-ALTER TABLE transaction_combos
-ADD CONSTRAINT chk_transaction_combos_quantity CHECK (quantity > 0);
 
 ALTER TABLE users
 ADD CONSTRAINT chk_users_loyalty_points CHECK (loyalty_points >= 0);

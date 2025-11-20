@@ -297,8 +297,13 @@ def verify_email(db: Session, request: EmailVerificationRequest):
                 detail="Mã xác nhận không hợp lệ hoặc đã được sử dụng.",
             )
 
-        if datetime.utcnow() > verification.expires_at:
-
+        # So sánh timezone-aware datetime
+        current_time = datetime.now(timezone.utc)
+        expires_at = verification.expires_at
+        if not hasattr(expires_at, 'tzinfo') or expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+        if current_time > expires_at:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Mã xác nhận đã hết hạn.",

@@ -27,7 +27,6 @@ class Payment(Base):
     }
     payment_id = Column(Integer, primary_key=True, index=True)
     order_id = Column(String(100), unique=True, index=True, nullable=False)
-    # Removed transaction_id to break circular dependency - Transaction references Payment instead
     amount = Column(Float, nullable=False)
     payment_method = Column(Enum(PaymentMethodEnum, name="payment_method"), nullable=False)
     payment_status = Column(Enum(PaymentStatusEnum, name="payment_status"), default=PaymentStatusEnum.PENDING)
