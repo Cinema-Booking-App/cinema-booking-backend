@@ -42,7 +42,7 @@ def get_all_bookings(db: Session):
                     'printed': False,
                     'received': False,
                     'refunded': False,
-                    'qr': code,
+                    'qr': None,  # sẽ gán sau
                 }
             # seat code/type
             seat_code = getattr(t.seat, 'seat_code', None)
@@ -69,6 +69,9 @@ def get_all_bookings(db: Session):
                     grouped[code]['date'] = dt.strftime('%Y-%m-%d') if dt else None
                 except Exception:
                     pass
+            # Gán qr cho booking nếu chưa có (ưu tiên qr_token, fallback về code)
+            if grouped[code]['qr'] is None:
+                    grouped[code]['qr'] = getattr(t, 'qr_code', None) or code
             # status inference: if any ticket is refunded/cancelled
             if str(t.status) == 'cancelled':
                 grouped[code]['refunded'] = True
@@ -106,7 +109,7 @@ def get_booking_by_code(db: Session, booking_code: str):
             'printed': False,
             'received': False,
             'refunded': False,
-            'qr': booking_code,
+            'qr': None,  # sẽ gán sau
         }
         for t in tickets:
             seat_code = getattr(t.seat, 'seat_code', None)
@@ -130,6 +133,9 @@ def get_booking_by_code(db: Session, booking_code: str):
                     grouped['movie'] = t.showtime.movie.title
                 except Exception:
                     pass
+            # Gán qr cho booking nếu chưa có (ưu tiên qr_token, fallback về booking_code)
+            if grouped['qr'] is None:
+                    grouped['qr'] = getattr(t, 'qr_code', None) or booking_code
             if str(t.status) == 'cancelled':
                 grouped['refunded'] = True
         grouped['seats'] = ', '.join([ti['seat'] for ti in grouped['tickets'] if ti.get('seat')])

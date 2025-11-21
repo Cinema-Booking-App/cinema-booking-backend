@@ -7,7 +7,9 @@ import random
 import string
 import traceback
 import unicodedata
-
+import qrcode
+import base64
+from io import BytesIO
 from app.services.email_service import EmailService
 from app.models.users import Users
 from app.models.showtimes import Showtimes
@@ -385,8 +387,28 @@ class PaymentService:
                     reservation.showtime_id
                 )
 
+                # Lấy thông tin ghế trước khi tạo QR code
+                seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
+                seat_code = seat.seat_code if seat else f"seat_{reservation.seat_id}"
+                seats_list.append(seat_code)
+
                 # Tạo Ticket với booking_code
                 ticket_user_id = reservation.user_id or transaction.user_id or getattr(payment, 'user_id', None)
+                # Chuỗi QR code payload cho từng vé (có thể tuỳ chỉnh thêm thông tin nếu muốn)
+                qr_code_payload = f"Mã đặt vé: {booking_code}\nKhách hàng: {user.full_name or user.name or 'Customer'}\nPhim: {movie_title}\nSuất chiếu: {showtime_str}\nGhế: {seat_code}"
+
+                qr = qrcode.QRCode(
+                    version=1,
+                    error_correction=qrcode.constants.ERROR_CORRECT_L,
+                    box_size=10,
+                    border=4,
+                )
+                qr.add_data(qr_code_payload)
+                qr.make(fit=True)
+                img = qr.make_image(fill_color="black", back_color="white")
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                qr_code_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
                 db_ticket = Tickets(
                     user_id=ticket_user_id,
                     showtime_id=reservation.showtime_id,
@@ -395,7 +417,8 @@ class PaymentService:
                     price=correct_price,
                     status='confirmed',
                     transaction_id=transaction.transaction_id,
-                    booking_code=booking_code
+                    booking_code=booking_code,
+                    qr_code=qr_code_base64
                 )
                 db.add(db_ticket)
                 db.flush()
@@ -405,10 +428,7 @@ class PaymentService:
                 reservation.transaction_id = transaction.transaction_id
                 created_tickets.append(db_ticket.ticket_id)
 
-                # Thu thập thông tin ghế
-                seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
-                seat_code = seat.seat_code if seat else f"seat_{reservation.seat_id}"
-                seats_list.append(seat_code)
+                # ...đã chuyển lên trên...
 
                 # Lấy thông tin phim/suất chiếu từ reservation đầu tiên
                 if movie_title == 'Unknown' or showtime_str == 'Unknown':

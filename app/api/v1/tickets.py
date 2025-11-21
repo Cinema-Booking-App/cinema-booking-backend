@@ -10,7 +10,6 @@ from app.models.users import Users
 from app.models.tickets import Tickets  
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
-import qrcode
 from io import BytesIO
 from app.core.token_utils import create_token
 from datetime import timedelta
@@ -55,7 +54,6 @@ def verify_ticket_by_qr(
     return success_response(verify_ticket_qr(db, verify_in))
 
 
-# Lấy danh sách vé của user
 @router.get("/tickets/my")
 def get_my_tickets(
     db: Session = Depends(get_db),
@@ -67,27 +65,45 @@ def get_my_tickets(
         .all()
     )
 
-    result = []
-    for t in tickets:
-        showtime = t.showtime
-        movie = showtime.movie
-        room = showtime.room
-        theater = showtime.theater
+    bookings = {}
 
-        result.append({
-            "ticket_id": t.ticket_id,
-            "booking_code": t.booking_code,
-            "seat_code": t.seat.seat_code,
-            "movie_title": movie.title,
-            "poster_url": movie.poster_url,   # ✔ thêm poster
-            "date": showtime.show_datetime.strftime("%Y-%m-%d"),  # ✔ thêm ngày
-            "time": showtime.show_datetime.strftime("%H:%M"),      # ✔ thêm giờ
-            "room": room.room_name,
-            "theater_name": theater.name,      # ✔ tên rạp
-            "theater_city": theater.city,      # (nếu muốn hiển thị thêm)
-        })
+    for t in tickets:
+        code = t.booking_code
+
+        if code not in bookings:
+            showtime = t.showtime
+            movie = showtime.movie
+            room = showtime.room
+            theater = showtime.theater
+
+            bookings[code] = {
+                "booking_code": code,
+                "movie_title": movie.title,
+                "poster_url": movie.poster_url,
+                "date": showtime.show_datetime.strftime("%Y-%m-%d"),
+                "time": showtime.show_datetime.strftime("%H:%M"),
+                "room": room.room_name,
+                "theater_name": theater.name,
+                "theater_city": theater.city,
+                "seats": [],
+                "qr_code": t.qr_code,
+                # Dùng trực tiếp show_datetime để sort, không trả ra FE
+                "_sort": showtime.show_datetime
+            }
+
+        bookings[code]["seats"].append(t.seat.seat_code)
+
+    result = list(bookings.values())
+
+    # Sort mới nhất → cũ nhất
+    result.sort(key=lambda x: x["_sort"], reverse=True)
+
+    # Xóa key sort trước khi trả về
+    for item in result:
+        del item["_sort"]
 
     return success_response(result)
+
 # Lấy chi tiết vé
 @router.get("/tickets/{ticket_id}")
 def get_ticket_detail(ticket_id: int, db: Session = Depends(get_db)):
@@ -125,49 +141,6 @@ def get_ticket_detail(ticket_id: int, db: Session = Depends(get_db)):
         # Room info
         "room_name": getattr(room, "room_name", None)
     })
-# Lấy hình ảnh QR của vé (Trả về file ảnh PNG)
-@router.get("/tickets/{ticket_id}/qr-image")
-def get_ticket_qr_image(ticket_id: int, db: Session = Depends(get_db)):
-    ticket = db.query(Tickets).filter(Tickets.ticket_id == ticket_id).first()
-
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
-
-    showtime = ticket.showtime
-    movie = showtime.movie
-    room = showtime.room
-    theater = showtime.theater
-    user = ticket.user
-
-    # 🔥 Payload đầy đủ thông tin vé
-    payload = {
-        "ticket_id": ticket.ticket_id,
-        "booking_code": ticket.booking_code,
-        "user_id": user.user_id if user else None,
-        "user_name": user.full_name if user else None,
-        "movie_title": movie.title,
-        "seat_code": ticket.seat.seat_code,
-        "seat_type": str(ticket.seat.seat_type),
-        "showtime_id": showtime.showtime_id,
-        "date": showtime.show_datetime.strftime("%Y-%m-%d"),
-        "time": showtime.show_datetime.strftime("%H:%M"),
-        "theater": theater.name,
-        "room": room.room_name,
-        "price": float(ticket.price),
-        "type": "ticket_qr",
-    }
-
-    # 🔐 Tạo JWT từ full payload
-    token_data = {"sub": str(ticket.ticket_id), **payload}
-    token = create_token(data=token_data, expires_delta=timedelta(hours=12), token_type="ticket")
-
-    # Tạo ảnh QR từ token
-    qr = qrcode.make(token)
-    buffer = BytesIO()
-    qr.save(buffer, format="PNG")
-    buffer.seek(0)
-
-    return StreamingResponse(buffer, media_type="image/png")
 # Hủy vé
 @router.post("/tickets/{ticket_id}/cancel")
 def cancel_ticket(
