@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from datetime import datetime, timezone
 import uuid
-import random, string
+import random
+import string
+import traceback
+import unicodedata
+
 from app.services.email_service import EmailService
 from app.models.users import Users
 from app.models.showtimes import Showtimes
@@ -23,269 +27,230 @@ from app.schemas.payments import (
     PaymentMethod
 )
 
-
 class PaymentService:
     """Service xử lý thanh toán"""
     
     def __init__(self):
         self.vnpay = VNPay()
 
-    def create_payment(self, db: Session, request: PaymentRequest, client_ip: str,user_id: Optional[int] = None):
-        order_id = str(uuid.uuid4())
-        reservations = db.query(SeatReservations).filter(
-            SeatReservations.session_id == request.session_id,
-            SeatReservations.status == 'pending'
-        ).all()
-        if not reservations:
-            raise ValueError("Không tìm thấy reservation hợp lệ với session_id đã cho")
-        
-        if user_id is None:
-            raise ValueError("Người dùng chưa được xác định")
-        
-        # Tính tổng số tiền từ các reservation
-        total_amount = 0
-        for reservation in reservations:
-            ticket_price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
-            total_amount += ticket_price
-        
-        # Chuẩn hóa payment_method về PaymentMethodEnum
-        try:
-            if isinstance(request.payment_method, str):
-                payment_method = PaymentMethodEnum(request.payment_method)
-            else:
-                payment_method = PaymentMethodEnum(request.payment_method.value)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid payment_method: {request.payment_method}")
-        if payment_method  == PaymentMethodEnum.VNPAY:
-            payment = VNPayPayment(
-                order_id=order_id,
-                amount=total_amount,
-                payment_method=payment_method,
-                payment_status=PaymentStatusEnum.PENDING,
-                order_desc=request.order_desc,
-                client_ip=client_ip,
-                vnp_txn_ref=order_id,
-                user_id=user_id  # Thêm user_id vào đây
-            )
-        else:
-            payment = Payment(
-                order_id=order_id,
-                user_id=user_id,
-                amount=total_amount,
-                payment_method=payment_method,
-                payment_status=PaymentStatusEnum.PENDING,
-                order_desc=request.order_desc,
-                client_ip=client_ip
-            )
-        db.add(payment)
-        db.commit()
-        db.refresh(payment)
-        
-        # Gán payment_id cho các ghế đã chọn
-        db.query(SeatReservations).filter(
-            SeatReservations.session_id == request.session_id,
-            SeatReservations.status == 'pending'
-        ).update({SeatReservations.payment_id: payment.payment_id}, synchronize_session=False)
-        db.commit()
-        
-        # Tạo transaction khởi tạo (log)
-        transaction = Transaction(
-            user_id=user_id,
-            staff_user_id=None,
-            promotion_id=None,
-            total_amount=total_amount,
-            payment_method=payment_method.value,
-            status=TransactionStatus.pending,
-            transaction_time=datetime.utcnow(),
-            payment_id=payment.payment_id
-        )
-        db.add(transaction)
-        db.commit()
-        db.refresh(transaction)
+    # --- HELPER: BỎ DẤU TIẾNG VIỆT ---
+    def remove_accents(self, input_str: str) -> str:
+        if not input_str:
+            return ""
+        nfkd_form = unicodedata.normalize('NFKD', input_str)
+        only_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+        return "".join(c for c in only_ascii if c.isalnum() or c == " ")
 
-        # Sử dụng payment_method enum đã convert (PaymentMethodEnum)
-        if payment_method == PaymentMethodEnum.VNPAY:
-            payment.payment_url = self.create_vnpay_url(request, client_ip, total_amount, order_id)
-        elif payment_method == PaymentMethodEnum.MOMO:
-            payment.payment_url = self.create_momo_url(request, client_ip) if hasattr(self, 'create_momo_url') else None
-        elif payment_method == PaymentMethodEnum.CASH:
-            payment.payment_url = None
+    def create_payment(self, db: Session, request: PaymentRequest, client_ip: str, user_id: Optional[int] = None):
+        print("\n================ PAYMENT START ================\n")
+        try:
+            order_id = str(uuid.uuid4())
+            reservations = db.query(SeatReservations).filter(
+                SeatReservations.session_id == request.session_id,
+                SeatReservations.status == 'pending'
+            ).all()
+
+            if not reservations:
+                raise ValueError("Không tìm thấy reservation hợp lệ")
             
-        db.commit()
-        db.refresh(payment)
-        
-        # Convert enum to schema enum for response
-        response_payment_method = PaymentMethod(payment.payment_method.value)
-        response_payment_status = PaymentStatus(payment.payment_status.value)
-        
-        return PaymentResponse(
-            payment_url=payment.payment_url,
-            order_id=order_id,
-            amount=payment.amount,
-            payment_method=response_payment_method,
-            payment_status=response_payment_status
-)
+            if user_id is None:
+                raise ValueError("Người dùng chưa được xác định")
+            
+            # Tính tổng tiền
+            total_amount = 0
+            for reservation in reservations:
+                ticket_price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
+                total_amount += ticket_price
+            
+            # Chuẩn hóa payment_method
+            try:
+                if isinstance(request.payment_method, str):
+                    payment_method = PaymentMethodEnum(request.payment_method)
+                else:
+                    payment_method = PaymentMethodEnum(request.payment_method.value)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid payment_method: {request.payment_method}")
 
-    """Tạo URL thanh toán VNPay và trả về chuỗi URL."""
-    def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id : str) -> str:
+            # Tạo Payment
+            if payment_method == PaymentMethodEnum.VNPAY:
+                payment = VNPayPayment(
+                    order_id=order_id,
+                    amount=total_amount,
+                    payment_method=payment_method,
+                    payment_status=PaymentStatusEnum.PENDING,
+                    order_desc=request.order_desc,
+                    client_ip=client_ip,
+                    vnp_txn_ref=order_id,
+                    user_id=user_id
+                )
+            else:
+                payment = Payment(
+                    order_id=order_id,
+                    user_id=user_id,
+                    amount=total_amount,
+                    payment_method=payment_method,
+                    payment_status=PaymentStatusEnum.PENDING,
+                    order_desc=request.order_desc,
+                    client_ip=client_ip
+                )
+            
+            db.add(payment)
+            db.flush()
+            
+            # Update Reservation
+            db.query(SeatReservations).filter(
+                SeatReservations.session_id == request.session_id,
+                SeatReservations.status == 'pending'
+            ).update({SeatReservations.payment_id: payment.payment_id}, synchronize_session=False)
+            
+            # Tạo Transaction
+            transaction = Transaction(
+                user_id=user_id,
+                staff_user_id=None,
+                promotion_id=None,
+                total_amount=total_amount,
+                payment_method=payment_method.value,
+                status=TransactionStatus.pending,
+                transaction_time=datetime.utcnow(),
+                payment_id=payment.payment_id
+            )
+            db.add(transaction)
+            
+            # Tạo URL thanh toán
+            if payment_method == PaymentMethodEnum.VNPAY:
+                payment.payment_url = self.create_vnpay_url(request, client_ip, total_amount, order_id)
+            elif payment_method == PaymentMethodEnum.MOMO:
+                payment.payment_url = None
+            elif payment_method == PaymentMethodEnum.CASH:
+                payment.payment_url = None
+                
+            db.commit()
+            db.refresh(payment)
+            
+            return PaymentResponse(
+                payment_url=payment.payment_url,
+                order_id=order_id,
+                amount=payment.amount,
+                payment_method=PaymentMethod(payment.payment_method.value),
+                payment_status=PaymentStatus(payment.payment_status.value)
+            )
+        except Exception as e:
+            db.rollback()
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id: str) -> str:
+        """Tạo URL thanh toán VNPay"""
         try:
-            # Set VNPay request data
+            clean_order_desc = self.remove_accents(payment_request.order_desc)
+            clean_order_desc = clean_order_desc[:50] if clean_order_desc else f"Thanh toan {order_id}"
+
             self.vnpay.set_request_data(
                 vnp_Version='2.1.0',
                 vnp_Command='pay',
                 vnp_TmnCode=settings.VNPAY_TMN_CODE,
-                vnp_Amount=amount * 100,
+                vnp_Amount=int(amount * 100),
                 vnp_CurrCode='VND',
                 vnp_TxnRef=order_id,
-                vnp_OrderInfo=payment_request.order_desc,
+                vnp_OrderInfo=clean_order_desc,
                 vnp_OrderType='other',
-                vnp_Locale=payment_request.language,
+                vnp_Locale=payment_request.language or 'vn',
                 vnp_CreateDate=datetime.now().strftime('%Y%m%d%H%M%S'),
                 vnp_IpAddr=client_ip,
                 vnp_ReturnUrl=settings.VNPAY_RETURN_URL
             )
             
-            # Generate payment URL
-            payment_url = self.vnpay.get_payment_url(
+            return self.vnpay.get_payment_url(
                 settings.VNPAY_PAYMENT_URL,
                 settings.VNPAY_HASH_SECRET_KEY
             )
-            
-            return payment_url
-            
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create payment URL: {str(e)}")
     
-    def handle_vnpay_callback(self,db: Session, callback_data: Dict[str, Any]) -> PaymentResult:
-        """Xử lý callback từ VNPay"""
+    def handle_vnpay_callback(self, db: Session, callback_data: Dict[str, Any]) -> PaymentResult:
+        """Xử lý callback: Chỉ xác thực chữ ký, KHÔNG cập nhật status DB tại đây để tránh conflict"""
         try:
-            # Set response data for validation
             self.vnpay.set_response_data(callback_data)
-            
-            # Validate signature
             is_valid = self.vnpay.validate_response(settings.VNPAY_HASH_SECRET_KEY)
             
+            order_id = callback_data.get('vnp_TxnRef')
+            amount = int(callback_data.get('vnp_Amount', 0)) // 100
+            response_code = callback_data.get('vnp_ResponseCode')
+            transaction_no = callback_data.get('vnp_TransactionNo')
+
             if not is_valid:
                 return PaymentResult(
                     success=False,
-                    order_id=callback_data.get('vnp_TxnRef', ''),
+                    order_id=order_id,
                     message="Invalid signature",
                     payment_method=PaymentMethod.VNPAY,
                     payment_status=PaymentStatus.FAILED
                 )
             
-            order_id = callback_data.get('vnp_TxnRef')
-            amount = int(callback_data.get('vnp_Amount', 0)) // 100
-            response_code = callback_data.get('vnp_ResponseCode')
-            transaction_id = callback_data.get('vnp_TransactionNo')
-            bank_code = callback_data.get('vnp_BankCode')
-            card_type = callback_data.get('vnp_CardType')
-            pay_date_str = callback_data.get('vnp_PayDate')
-            pay_date = None
-            if pay_date_str:
-                try:
-                    pay_date = datetime.strptime(pay_date_str, "%Y%m%d%H%M%S")
-                except ValueError:
-                    pay_date = None  # hoặc log lỗi nếu cần
-                
-            # Check payment status
-            if response_code == '00':
-                status_schema = PaymentStatus.SUCCESS
-                status_model = PaymentStatusEnum.SUCCESS
-                message = "Payment successful"
-                success = True
-            else:
-                status_schema = PaymentStatus.FAILED
-                status_model = PaymentStatusEnum.FAILED
-                message = f"Payment failed with code: {response_code}"
-                success = False
-            # Cập nhật database
-            payment = db.query(Payment).filter_by(order_id=order_id).first()
-            if not payment:
-                raise HTTPException(status_code=404, detail=f"Payment record {order_id} not found")
-
-            payment.vnp_transaction_no = transaction_id
-            payment.amount = amount
-            payment.payment_status = status_model
-            db.commit()
-
-            # Bước 1: Lấy payment_id từ Payment
-            vnpay_payment = db.query(VNPayPayment).filter(
-                VNPayPayment.order_id == order_id
-            ).first()
-            if not vnpay_payment:
-                raise HTTPException(status_code=404, detail="Payment not found")
-
-           # Update VNPayPayment với đầy đủ thông tin
-            vnpay_payment.vnp_transaction_no = transaction_id
-            vnpay_payment.vnp_response_code = response_code
-            vnpay_payment.vnp_bank_code = bank_code
-            vnpay_payment.vnp_card_type = card_type
-            vnpay_payment.vnp_pay_date = pay_date
-            vnpay_payment.amount = amount
-            vnpay_payment.payment_status = status_model
+            success = (response_code == '00')
             
-            db.commit()
-            db.refresh(vnpay_payment)
-
             return PaymentResult(
                 success=success,
                 order_id=order_id,
-                transaction_id=transaction_id,
+                transaction_id=transaction_no,
                 amount=amount,
-                message=message,
+                message="Success" if success else f"Failed: {response_code}",
                 payment_method=PaymentMethod.VNPAY,
-                payment_status=status_schema
+                payment_status=PaymentStatus.SUCCESS if success else PaymentStatus.FAILED
             )
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to process callback: {str(e)}")
-    
-    
-    def update_payment_status(
-        self,
-        db: Session,
-        order_id: str,
-        payment_result: PaymentResult
-    ) -> Dict[str, Any]:
-        """Cập nhật trạng thái thanh toán và xử lý logic tiếp theo"""
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Callback error: {str(e)}")
+
+    def update_payment_status(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
+        """
+        Hàm quan trọng: Cập nhật trạng thái và TẠO VÉ (Atomic)
+        
+        LOGIC:
+        1. Kiểm tra payment đã xử lý chưa
+        2. VALIDATE reservations TRƯỚC KHI cho phép payment success
+        3. Chỉ cập nhật payment success SAU KHI tạo vé thành công
+        """
         try:
-            # 1. Tìm payment record
+            # 1. Tìm payment
             payment = self.get_payment_by_order_id(db, order_id)
             if not payment:
-                raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
+                raise HTTPException(status_code=404, detail="Payment not found")
             
-
-            # Nếu payment đã thành công trước đó, không xử lý lại
-            existing_transaction = db.query(Transaction).filter(Transaction.payment_id == payment.payment_id).first()
-            if existing_transaction and existing_transaction.status == TransactionStatus.success:
-                # Tìm booking code từ các vé đã tạo cho giao dịch này (nếu có)
-                existing_tickets = db.query(Tickets).filter(Tickets.transaction_id == existing_transaction.transaction_id).all()
-                booking_code = existing_tickets[0].booking_code if existing_tickets else None
+            # Nếu đã xử lý rồi
+            if payment.payment_status == PaymentStatusEnum.SUCCESS:
+                trans = db.query(Transaction).filter_by(payment_id=payment.payment_id).first()
+                ticket = db.query(Tickets).filter_by(transaction_id=trans.transaction_id).first() if trans else None
                 return {
                     "status": "success",
-                    "payment_status": payment.payment_status.value,
-                    "order_id": order_id,
-                    "vnp_transaction_no": payment.vnp_transaction_no,
-                    "transaction_id": existing_transaction.transaction_id,
-                    "booking_code": booking_code,
-                    "message": "Payment already processed"
+                    "booking_code": ticket.booking_code if ticket else "PROCESSED",
+                    "message": "Already processed"
                 }
 
             # 2. Xử lý thanh toán thất bại
             if not payment_result.success:
                 payment.payment_status = PaymentStatusEnum.FAILED
+                
+                # Cập nhật VNPay payment nếu có
+                vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
+                if vnpay_payment:
+                    vnpay_payment.payment_status = PaymentStatusEnum.FAILED
+                
+                # Cập nhật transaction
+                trans = db.query(Transaction).filter_by(payment_id=payment.payment_id).first()
+                if trans:
+                    trans.status = TransactionStatus.failed
+                
                 db.commit()
                 return {
                     "status": "failed",
                     "payment_status": payment.payment_status.value,
                     "order_id": order_id,
-                    "vnp_transaction_no": getattr(payment, 'vnp_transaction_no', None),
-                    "message": "Payment failed"
+                    "message": "Payment failed from gateway"
                 }
             
             # 3. Thanh toán thành công - VALIDATE reservations TRƯỚC KHI commit payment success
-            # Kiểm tra có reservations hợp lệ không
             reservations = db.query(SeatReservations).filter(
                 SeatReservations.payment_id == payment.payment_id,
                 SeatReservations.status == 'pending'
@@ -301,17 +266,15 @@ class PaymentService:
                 )
             
             # Kiểm tra reservations có còn hạn không
-            # Sử dụng timezone-aware datetime để so sánh đúng
             current_time = datetime.now(timezone.utc)
             expired_reservations = []
+            
             for res in reservations:
                 expires_at = res.expires_at
                 # Đảm bảo expires_at là timezone-aware
                 if not hasattr(expires_at, 'tzinfo') or expires_at.tzinfo is None:
-                    # Nếu naive, giả định là UTC
                     expires_at = expires_at.replace(tzinfo=timezone.utc)
                 elif expires_at.tzinfo != timezone.utc:
-                    # Convert về UTC nếu là timezone khác
                     expires_at = expires_at.astimezone(timezone.utc)
                 
                 if expires_at < current_time:
@@ -326,20 +289,22 @@ class PaymentService:
                     detail=f"{len(expired_reservations)} reservation(s) have expired. Cannot process payment. Payment has been marked as FAILED."
                 )
             
-            # 4. Có reservations hợp lệ → Tiến hành tạo vé
-            # Cập nhật VNPay transaction number trước
+            # 4. Có reservations hợp lệ → Cập nhật VNPay transaction number trước
             vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
             if vnpay_payment and payment_result.transaction_id:
                 vnpay_payment.vnp_transaction_no = payment_result.transaction_id
                 db.commit()
             
-            # Tạo tickets
+            # 5. Tạo tickets (trong một transaction riêng để đảm bảo atomic)
             success_result = self.process_successful_payment(db, order_id, payment_result)
             
-            # 5. CHỈ CẬP NHẬT payment success SAU KHI tạo vé thành công
+            # 6. CHỈ CẬP NHẬT payment success SAU KHI tạo vé thành công
             payment.payment_status = PaymentStatusEnum.SUCCESS
+            if vnpay_payment:
+                vnpay_payment.payment_status = PaymentStatusEnum.SUCCESS
             if success_result.get("transaction_id"):
                 payment.transaction_id = success_result["transaction_id"]
+            
             db.commit()
             
             return {
@@ -350,15 +315,13 @@ class PaymentService:
                 **success_result
             }
             
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to update payment status: {str(e)}")
-    
-    def get_payment_by_order_id(self, db: Session, order_id: str) -> Optional[Payment]:
-        """Lấy thông tin thanh toán theo order ID"""
-        return db.query(Payment).filter(Payment.order_id == order_id).first()
-    
-        """Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation"""
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=str(e))
 
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
         """
@@ -384,17 +347,16 @@ class PaymentService:
             if not transaction:
                 raise HTTPException(status_code=404, detail=f"Transaction not found for payment_id: {payment.payment_id}")
 
-            # Get reservations (đã được validate ở update_payment_status, nhưng check lại để chắc chắn)
+            # Get reservations (đã được validate ở update_payment_status)
             reservations = db.query(SeatReservations).filter(
                 SeatReservations.payment_id == payment.payment_id,
                 SeatReservations.status == 'pending'
             ).all()
 
             if not reservations:
-                # Không nên xảy ra vì đã validate ở trên, nhưng để đề phòng
                 raise HTTPException(
                     status_code=500,
-                    detail=f"CRITICAL: No pending reservations found for payment_id: {payment.payment_id}. This should have been caught earlier."
+                    detail=f"CRITICAL: No pending reservations found for payment_id: {payment.payment_id}"
                 )
 
             created_tickets = []
@@ -402,25 +364,21 @@ class PaymentService:
 
             # Sinh booking_code duy nhất cho đơn đặt vé này
             def generate_booking_code():
-                # Ví dụ: BK20251021A1
                 now = datetime.now()
-                rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=2))
+                rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
                 return f"BK{now.strftime('%Y%m%d')}{rand}"
+            
             booking_code = generate_booking_code()
+
+            # Thu thập thông tin để gửi email
+            seats_list = []
+            movie_title = 'Unknown'
+            showtime_str = 'Unknown'
 
             for reservation in reservations:
                 reservation_ids.append(reservation.reservation_id)
 
-                # Kiểm tra thời hạn reservation
-                current_time = datetime.utcnow()
-                expires_at = reservation.expires_at
-                if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo:
-                    expires_at = expires_at.astimezone(timezone.utc).replace(tzinfo=None)
-
-                if expires_at < current_time:
-                    raise HTTPException(status_code=400, detail=f"Reservation {reservation.reservation_id} has expired")
-
-                # Tính giá vé
+                # Tính giá vé chính xác
                 correct_price = self.calculate_ticket_price(
                     db,
                     reservation.seat_id,
@@ -428,7 +386,6 @@ class PaymentService:
                 )
 
                 # Tạo Ticket với booking_code
-                # Determine user_id: prefer reservation.user_id, then transaction.user_id, then payment.user_id
                 ticket_user_id = reservation.user_id or transaction.user_id or getattr(payment, 'user_id', None)
                 db_ticket = Tickets(
                     user_id=ticket_user_id,
@@ -441,38 +398,30 @@ class PaymentService:
                     booking_code=booking_code
                 )
                 db.add(db_ticket)
-                db.flush() # Lấy ticket_id
+                db.flush()
 
                 # Cập nhật reservation
                 reservation.status = "confirmed"
                 reservation.transaction_id = transaction.transaction_id
                 created_tickets.append(db_ticket.ticket_id)
 
-            transaction.status = TransactionStatus.success
-            transaction.payment_ref_code = payment_result.transaction_id
-            db.commit()
-
-            # Gửi 1 email tổng hợp cho toàn bộ booking (nhiều ghế trong cùng 1 email)
-            seats_list = []
-            movie_title = 'Unknown'
-            showtime_str = 'Unknown'
-
-            # gather seat codes and determine movie/showtime from first reservation/ticket
-            for reservation in reservations:
+                # Thu thập thông tin ghế
                 seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
                 seat_code = seat.seat_code if seat else f"seat_{reservation.seat_id}"
                 seats_list.append(seat_code)
 
-                # grab showtime/movie from first
+                # Lấy thông tin phim/suất chiếu từ reservation đầu tiên
                 if movie_title == 'Unknown' or showtime_str == 'Unknown':
                     st = db.query(Showtimes).filter(Showtimes.showtime_id == reservation.showtime_id).first()
                     if st:
+                        # Lấy tên phim
                         if hasattr(st, 'movie') and getattr(st, 'movie') is not None:
                             movie_title = getattr(st.movie, 'title', 'Unknown')
                         else:
                             mv = db.query(Movies).filter(Movies.movie_id == getattr(st, 'movie_id', None)).first()
                             movie_title = mv.title if mv else 'Unknown'
 
+                        # Lấy thời gian chiếu
                         dt = getattr(st, 'show_datetime', None)
                         if dt is not None:
                             try:
@@ -487,82 +436,87 @@ class PaymentService:
                             else:
                                 showtime_str = 'Unknown'
 
-            ticket_info = {
-                'booking_id': booking_code,
-                'customer_name': getattr(user, 'full_name', getattr(user, 'name', 'Customer')),
-                'movie_name': movie_title,
-                'showtime': showtime_str,
-                'seats': seats_list
-            }
+            # Cập nhật transaction
+            transaction.status = TransactionStatus.success
+            transaction.payment_ref_code = payment_result.transaction_id
+            db.commit()
 
-            smtp_host = getattr(settings, 'EMAIL_HOST', getattr(settings, 'SMTP_SERVER', None))
-            smtp_port = getattr(settings, 'EMAIL_PORT', getattr(settings, 'SMTP_PORT', None))
-            smtp_user = getattr(settings, 'EMAIL_USERNAME', getattr(settings, 'SMTP_USERNAME', None))
-            smtp_pass = getattr(settings, 'EMAIL_PASSWORD', getattr(settings, 'SMTP_PASSWORD', None))
-            sender_name = getattr(settings, 'EMAIL_SENDER_NAME', 'CinePlus')
-
-            email_service = EmailService(
-                smtp_server=smtp_host,
-                smtp_port=smtp_port,
-                username=smtp_user,
-                password=smtp_pass,
-                sender_name=sender_name
-            )
-
-            email_sent = email_service.send_ticket_email(
-                to_email=getattr(user, 'email', None),
-                ticket_info=ticket_info
-            )
-
-            if not email_sent:
-                print(f"Warning: Failed to send booking email for booking {booking_code}")
+            # --- GỬI EMAIL (BỌC TRY-EXCEPT ĐỂ KHÔNG CRASH NẾU LỖI) ---
+            try:
+                self.send_booking_email(
+                    user=user,
+                    booking_code=booking_code,
+                    movie_title=movie_title,
+                    showtime_str=showtime_str,
+                    seats_list=seats_list
+                )
+            except Exception as email_error:
+                print(f"WARNING: Failed to send email for {booking_code}. Error: {email_error}")
+                print(traceback.format_exc())
+                # Không raise exception - vé đã tạo thành công
 
             return {
                 "transaction_id": transaction.transaction_id,
-                "vnp_transaction_no": payment_result.transaction_id,
-                "status": "success",
-                "message": "Payment processed successfully and tickets created",
-                "booking_code": booking_code
+                "booking_code": booking_code,
+                "message": "Tickets created successfully"
             }
-
+            
         except HTTPException:
-            # propagate HTTPException (đã chuẩn bị message cho user)
             db.rollback()
             raise
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to process successful payment: {str(e)}")
- 
-        # Thêm method calculate_ticket_price bị thiếu
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def send_booking_email(self, user: Users, booking_code: str, movie_title: str, 
+                          showtime_str: str, seats_list: list):
+        """
+        Hàm gửi email tách riêng - không cần db session vì chỉ gửi email
+        
+        Raises:
+            Exception: Nếu gửi email thất bại
+        """
+        ticket_info = {
+            'booking_id': booking_code,
+            'customer_name': user.full_name or user.name or 'Customer',
+            'movie_name': movie_title,
+            'showtime': showtime_str,
+            'seats': seats_list
+        }
+        
+        email_service = EmailService(
+            smtp_server=settings.EMAIL_HOST,
+            smtp_port=settings.EMAIL_PORT,
+            username=settings.EMAIL_USERNAME,
+            password=settings.EMAIL_PASSWORD,
+            sender_name=settings.EMAIL_SENDER_NAME
+        )
+        
+        email_service.send_ticket_email(to_email=user.email, ticket_info=ticket_info)
+
     def calculate_ticket_price(self, db: Session, seat_id: int, showtime_id: int) -> int:
-        """Tính giá vé dựa trên loại ghế và suất chiếu"""
-        try:
-            # Import ở đây để tránh circular import
-            from app.models.seats import Seats
-            from app.models.showtimes import Showtimes
-            from app.models.seat_templates import SeatTypeEnum
+        """Tính giá vé dựa trên loại ghế và giá suất chiếu"""
+        from app.models.seats import Seats
+        from app.models.showtimes import Showtimes
+        from app.models.seat_templates import SeatTypeEnum
+        
+        seat = db.query(Seats).filter(Seats.seat_id == seat_id).first()
+        showtime = db.query(Showtimes).filter(Showtimes.showtime_id == showtime_id).first()
+        
+        if not seat or not showtime:
+            raise HTTPException(status_code=404, detail="Seat or Showtime not found")
+        
+        price = float(showtime.ticket_price)
+        
+        # Áp dụng hệ số nhân theo loại ghế
+        if seat.seat_type == SeatTypeEnum.vip:
+            price *= 1.5
+        elif seat.seat_type == SeatTypeEnum.couple:
+            price *= 2.0
             
-            # Lấy thông tin ghế và loại ghế
-            seat = db.query(Seats).filter(Seats.seat_id == seat_id).first()
-            if not seat:
-                raise HTTPException(status_code=404, detail=f"Seat {seat_id} not found")
-            
-            # Lấy thông tin suất chiếu để có giá cơ bản
-            showtime = db.query(Showtimes).filter(Showtimes.showtime_id == showtime_id).first()  
-            if not showtime:
-                raise HTTPException(status_code=404, detail=f"Showtime {showtime_id} not found")
-            
-            # Lấy giá cơ bản từ showtime (sử dụng ticket_price)
-            base_price = float(showtime.ticket_price)
-            
-            # Tính phụ phí theo loại ghế (tương tự logic trong tickets_service)
-            if seat.seat_type == SeatTypeEnum.vip:
-                base_price *= 1.5  # VIP tăng 50%
-            elif seat.seat_type == SeatTypeEnum.couple:
-                base_price *= 2.0  # Couple tăng 100%
-            # regular giữ nguyên giá base
-            
-            return int(base_price)
-            
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to calculate ticket price: {str(e)}")
+        return int(price)
+
+    def get_payment_by_order_id(self, db: Session, order_id: str) -> Optional[Payment]:
+        """Lấy payment theo order_id"""
+        return db.query(Payment).filter(Payment.order_id == order_id).first()
