@@ -34,6 +34,15 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
 def get_user_info(current_user:UserResponse = Depends(get_current_user)):
     return success_response(current_user)
 
+
+# Logout endpoint - for stateless JWT this is a no-op, provided for frontend convenience
+@router.get('/logout')
+def logout_route(request: Request = None):
+    """Logout endpoint: returns success so frontend can call /logout and clear client state.
+    If you implement token revocation later, add logic here to blacklist the token.
+    """
+    return success_response({"message": "Logged out"})
+
 @router.post("/refresh-token")
 def refresh_access_token(token: str, db: Session = Depends(get_db)):
     # Xác minh refresh token
