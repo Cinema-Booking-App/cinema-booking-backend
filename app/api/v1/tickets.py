@@ -3,7 +3,7 @@ from app.core.security import get_current_active_user
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.tickets import TicketsCreate, TicketVerifyRequest
-from app.services.tickets_service import create_ticket_directly, generate_ticket_qr, verify_ticket_qr
+from app.services.tickets_service import create_ticket_directly, generate_ticket_qr, verify_ticket_qr ,get_all_bookings
 from app.utils.response import success_response
 from app.models.users import Users
 from app.models.tickets import Tickets  
@@ -16,6 +16,13 @@ from datetime import timedelta
 
 
 router =APIRouter()
+@router.get("/tickets")
+def read_tickets(
+    db: Session = Depends(get_db),
+    # _ = Depends(get_current_active_user),
+):
+    # Placeholder for reading tickets logic
+    return success_response(get_all_bookings(db))
 
 # Nhân viên Tạo vé trực tiếp tại quầy
 @router.post("/tickets/direct",status_code=201)

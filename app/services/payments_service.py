@@ -6,7 +6,7 @@ import uuid
 import random
 import string
 import traceback
-import unicodedata  # <--- Mới thêm: Để xử lý tiếng Việt
+import unicodedata
 
 from app.services.email_service import EmailService
 from app.models.users import Users
@@ -95,7 +95,7 @@ class PaymentService:
                 )
             
             db.add(payment)
-            db.flush() # Dùng flush để lấy ID nhưng chưa commit hẳn
+            db.flush()
             
             # Update Reservation
             db.query(SeatReservations).filter(
@@ -120,7 +120,7 @@ class PaymentService:
             if payment_method == PaymentMethodEnum.VNPAY:
                 payment.payment_url = self.create_vnpay_url(request, client_ip, total_amount, order_id)
             elif payment_method == PaymentMethodEnum.MOMO:
-                payment.payment_url = None # Chưa implement
+                payment.payment_url = None
             elif payment_method == PaymentMethodEnum.CASH:
                 payment.payment_url = None
                 
@@ -142,7 +142,6 @@ class PaymentService:
     def create_vnpay_url(self, payment_request: PaymentRequest, client_ip: str, amount: int, order_id: str) -> str:
         """Tạo URL thanh toán VNPay"""
         try:
-            # Xử lý chuỗi an toàn
             clean_order_desc = self.remove_accents(payment_request.order_desc)
             clean_order_desc = clean_order_desc[:50] if clean_order_desc else f"Thanh toan {order_id}"
 
@@ -205,7 +204,14 @@ class PaymentService:
             raise HTTPException(status_code=500, detail=f"Callback error: {str(e)}")
 
     def update_payment_status(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
-        """Hàm quan trọng: Cập nhật trạng thái và TẠO VÉ (Atomic)"""
+        """
+        Hàm quan trọng: Cập nhật trạng thái và TẠO VÉ (Atomic)
+        
+        LOGIC:
+        1. Kiểm tra payment đã xử lý chưa
+        2. VALIDATE reservations TRƯỚC KHI cho phép payment success
+        3. Chỉ cập nhật payment success SAU KHI tạo vé thành công
+        """
         try:
             # 1. Tìm payment
             payment = self.get_payment_by_order_id(db, order_id)
@@ -214,7 +220,6 @@ class PaymentService:
             
             # Nếu đã xử lý rồi
             if payment.payment_status == PaymentStatusEnum.SUCCESS:
-                # Tìm booking code cũ để trả về
                 trans = db.query(Transaction).filter_by(payment_id=payment.payment_id).first()
                 ticket = db.query(Tickets).filter_by(transaction_id=trans.transaction_id).first() if trans else None
                 return {
@@ -223,139 +228,255 @@ class PaymentService:
                     "message": "Already processed"
                 }
 
-            # Cập nhật thông tin VNPay (nhưng chưa commit status success)
+            # 2. Xử lý thanh toán thất bại
+            if not payment_result.success:
+                payment.payment_status = PaymentStatusEnum.FAILED
+                
+                # Cập nhật VNPay payment nếu có
+                vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
+                if vnpay_payment:
+                    vnpay_payment.payment_status = PaymentStatusEnum.FAILED
+                
+                # Cập nhật transaction
+                trans = db.query(Transaction).filter_by(payment_id=payment.payment_id).first()
+                if trans:
+                    trans.status = TransactionStatus.failed
+                
+                db.commit()
+                return {
+                    "status": "failed",
+                    "payment_status": payment.payment_status.value,
+                    "order_id": order_id,
+                    "message": "Payment failed from gateway"
+                }
+            
+            # 3. Thanh toán thành công - VALIDATE reservations TRƯỚC KHI commit payment success
+            reservations = db.query(SeatReservations).filter(
+                SeatReservations.payment_id == payment.payment_id,
+                SeatReservations.status == 'pending'
+            ).all()
+            
+            if not reservations:
+                # KHÔNG có reservations → KHÔNG CHO PHÉP payment thành công
+                payment.payment_status = PaymentStatusEnum.FAILED
+                db.commit()
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot process payment: No valid reservations found. Payment has been marked as FAILED."
+                )
+            
+            # Kiểm tra reservations có còn hạn không
+            current_time = datetime.now(timezone.utc)
+            expired_reservations = []
+            
+            for res in reservations:
+                expires_at = res.expires_at
+                # Đảm bảo expires_at là timezone-aware
+                if not hasattr(expires_at, 'tzinfo') or expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                elif expires_at.tzinfo != timezone.utc:
+                    expires_at = expires_at.astimezone(timezone.utc)
+                
+                if expires_at < current_time:
+                    expired_reservations.append(res.reservation_id)
+            
+            if expired_reservations:
+                # Có reservations hết hạn → KHÔNG CHO PHÉP payment thành công
+                payment.payment_status = PaymentStatusEnum.FAILED
+                db.commit()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{len(expired_reservations)} reservation(s) have expired. Cannot process payment. Payment has been marked as FAILED."
+                )
+            
+            # 4. Có reservations hợp lệ → Cập nhật VNPay transaction number trước
             vnpay_payment = db.query(VNPayPayment).filter_by(payment_id=payment.payment_id).first()
             if vnpay_payment and payment_result.transaction_id:
                 vnpay_payment.vnp_transaction_no = payment_result.transaction_id
-            
-            # 2. Nếu thanh toán thất bại
-            if not payment_result.success:
-                payment.payment_status = PaymentStatusEnum.FAILED
-                if vnpay_payment: vnpay_payment.payment_status = PaymentStatusEnum.FAILED
-                
-                trans = db.query(Transaction).filter_by(payment_id=payment.payment_id).first()
-                if trans: trans.status = TransactionStatus.failed
-                
                 db.commit()
-                return {"status": "failed", "message": "Payment failed from gateway"}
-
-            # 3. Nếu thanh toán thành công -> TẠO VÉ
-            try:
-                # Gọi hàm tạo vé và gửi mail
-                success_data = self.process_successful_payment(db, order_id, payment_result)
-                
-                # Cập nhật Payment & Transaction thành công SAU KHI tạo vé xong
-                payment.payment_status = PaymentStatusEnum.SUCCESS
-                if vnpay_payment: vnpay_payment.payment_status = PaymentStatusEnum.SUCCESS
-                
-                if success_data.get("transaction_id"):
-                    payment.transaction_id = success_data["transaction_id"]
-                
-                db.commit() # <--- COMMIT CUỐI CÙNG
-                
-                return {
-                    "status": "success",
-                    "payment_status": "SUCCESS",
-                    **success_data
-                }
-                
-            except Exception as logic_error:
-                db.rollback() # Rollback nếu tạo vé lỗi
-                print(f"CRITICAL: Payment success but ticket generation failed: {logic_error}")
-                raise HTTPException(status_code=500, detail="Payment charged but failed to generate ticket.")
-
+            
+            # 5. Tạo tickets (trong một transaction riêng để đảm bảo atomic)
+            success_result = self.process_successful_payment(db, order_id, payment_result)
+            
+            # 6. CHỈ CẬP NHẬT payment success SAU KHI tạo vé thành công
+            payment.payment_status = PaymentStatusEnum.SUCCESS
+            if vnpay_payment:
+                vnpay_payment.payment_status = PaymentStatusEnum.SUCCESS
+            if success_result.get("transaction_id"):
+                payment.transaction_id = success_result["transaction_id"]
+            
+            db.commit()
+            
+            return {
+                "status": "success",
+                "payment_status": payment.payment_status.value,
+                "order_id": order_id,
+                "vnp_transaction_no": getattr(payment, 'vnp_transaction_no', None),
+                **success_result
+            }
+            
+        except HTTPException:
+            # Re-raise HTTP exceptions as-is
+            raise
         except Exception as e:
             db.rollback()
             print(traceback.format_exc())
             raise HTTPException(status_code=500, detail=str(e))
 
     def process_successful_payment(self, db: Session, order_id: str, payment_result: PaymentResult) -> Dict[str, Any]:
-        """Logic tạo vé và gửi mail"""
-        # Lấy payment & user
-        payment = self.get_payment_by_order_id(db, order_id)
-        user = db.query(Users).filter(Users.user_id == payment.user_id).first()
-        transaction = db.query(Transaction).filter(Transaction.payment_id == payment.payment_id).first()
+        """
+        Xử lý sau khi thanh toán thành công - tạo ticket và cập nhật reservation
         
-        reservations = db.query(SeatReservations).filter(
-            SeatReservations.payment_id == payment.payment_id,
-            SeatReservations.status == 'pending'
-        ).all()
-
-        if not reservations:
-            # Có thể đã xử lý rồi hoặc lỗi
-            check_ticket = db.query(Tickets).filter(Tickets.transaction_id == transaction.transaction_id).first()
-            if check_ticket:
-                return {
-                    "transaction_id": transaction.transaction_id,
-                    "booking_code": check_ticket.booking_code
-                }
-            raise HTTPException(status_code=404, detail="No pending reservations found")
-
-        # Tạo Booking Code
-        booking_code = f"BK{datetime.now().strftime('%Y%m%d')}{''.join(random.choices(string.ascii_uppercase + string.digits, k=4))}"
-
-        created_tickets = []
-        for reservation in reservations:
-            # Kiểm tra hết hạn (Optional: Có thể bỏ qua nếu đã thanh toán thành công để user không bị mất tiền)
-            # current_time = datetime.utcnow()
-            # if reservation.expires_at < current_time: ...
-
-            price = self.calculate_ticket_price(db, reservation.seat_id, reservation.showtime_id)
-            
-            ticket = Tickets(
-                user_id=user.user_id,
-                showtime_id=reservation.showtime_id,
-                seat_id=reservation.seat_id,
-                price=price,
-                status='confirmed',
-                transaction_id=transaction.transaction_id,
-                booking_code=booking_code
-            )
-            db.add(ticket)
-            
-            reservation.status = "confirmed"
-            reservation.transaction_id = transaction.transaction_id
-        
-        transaction.status = TransactionStatus.success
-        transaction.payment_ref_code = payment_result.transaction_id
-        
-        db.flush() # Lưu tạm để check lỗi
-
-        # --- GỬI EMAIL (QUAN TRỌNG: BỌC TRY EXCEPT ĐỂ KHÔNG CHẾT APP NẾU GỬI LỖI) ---
+        LƯU Ý: Method này CHỈ được gọi SAU KHI đã validate reservations trong update_payment_status
+        """
         try:
-            self.send_booking_email(db, reservations, user, booking_code)
-        except Exception as e:
-            print(f"WARNING: Failed to send email for {booking_code}. Error: {e}")
-            # Không raise exception ở đây để vé vẫn được tạo
-
-        return {
-            "transaction_id": transaction.transaction_id,
-            "booking_code": booking_code,
-            "message": "Tickets created successfully"
-        }
-
-    def send_booking_email(self, db: Session, reservations: list, user: Users, booking_code: str):
-        """Hàm gửi email tách riêng"""
-        seats_list = []
-        movie_title = 'Unknown'
-        showtime_str = 'Unknown'
-
-        for res in reservations:
-            seat = db.query(Seats).filter(Seats.seat_id == res.seat_id).first()
-            seats_list.append(seat.seat_code if seat else str(res.seat_id))
+            # 0. Lấy payment để biết payment_id
+            payment = self.get_payment_by_order_id(db, order_id)
+            if not payment:
+                raise HTTPException(status_code=404, detail=f"Payment not found for order_id: {order_id}")
             
-            # Lấy thông tin phim từ vé đầu tiên
-            if movie_title == 'Unknown':
-                st = db.query(Showtimes).filter(Showtimes.showtime_id == res.showtime_id).first()
-                if st:
-                    if st.movie: movie_title = st.movie.title
-                    else: 
-                        mv = db.query(Movies).filter(Movies.movie_id == st.movie_id).first()
-                        movie_title = mv.title if mv else 'Unknown'
-                    
-                    dt = st.show_datetime
-                    showtime_str = dt.strftime('%Y-%m-%d %H:%M') if dt else str(st.start_time)
+            # Get user information
+            user = db.query(Users).filter(Users.user_id == payment.user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail=f"User not found for payment")
 
+            # Get transaction
+            transaction = db.query(Transaction).filter(
+                Transaction.payment_id == payment.payment_id
+            ).first()
+            if not transaction:
+                raise HTTPException(status_code=404, detail=f"Transaction not found for payment_id: {payment.payment_id}")
+
+            # Get reservations (đã được validate ở update_payment_status)
+            reservations = db.query(SeatReservations).filter(
+                SeatReservations.payment_id == payment.payment_id,
+                SeatReservations.status == 'pending'
+            ).all()
+
+            if not reservations:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"CRITICAL: No pending reservations found for payment_id: {payment.payment_id}"
+                )
+
+            created_tickets = []
+            reservation_ids = []
+
+            # Sinh booking_code duy nhất cho đơn đặt vé này
+            def generate_booking_code():
+                now = datetime.now()
+                rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+                return f"BK{now.strftime('%Y%m%d')}{rand}"
+            
+            booking_code = generate_booking_code()
+
+            # Thu thập thông tin để gửi email
+            seats_list = []
+            movie_title = 'Unknown'
+            showtime_str = 'Unknown'
+
+            for reservation in reservations:
+                reservation_ids.append(reservation.reservation_id)
+
+                # Tính giá vé chính xác
+                correct_price = self.calculate_ticket_price(
+                    db,
+                    reservation.seat_id,
+                    reservation.showtime_id
+                )
+
+                # Tạo Ticket với booking_code
+                ticket_user_id = reservation.user_id or transaction.user_id or getattr(payment, 'user_id', None)
+                db_ticket = Tickets(
+                    user_id=ticket_user_id,
+                    showtime_id=reservation.showtime_id,
+                    seat_id=reservation.seat_id,
+                    promotion_id=None,
+                    price=correct_price,
+                    status='confirmed',
+                    transaction_id=transaction.transaction_id,
+                    booking_code=booking_code
+                )
+                db.add(db_ticket)
+                db.flush()
+
+                # Cập nhật reservation
+                reservation.status = "confirmed"
+                reservation.transaction_id = transaction.transaction_id
+                created_tickets.append(db_ticket.ticket_id)
+
+                # Thu thập thông tin ghế
+                seat = db.query(Seats).filter(Seats.seat_id == reservation.seat_id).first()
+                seat_code = seat.seat_code if seat else f"seat_{reservation.seat_id}"
+                seats_list.append(seat_code)
+
+                # Lấy thông tin phim/suất chiếu từ reservation đầu tiên
+                if movie_title == 'Unknown' or showtime_str == 'Unknown':
+                    st = db.query(Showtimes).filter(Showtimes.showtime_id == reservation.showtime_id).first()
+                    if st:
+                        # Lấy tên phim
+                        if hasattr(st, 'movie') and getattr(st, 'movie') is not None:
+                            movie_title = getattr(st.movie, 'title', 'Unknown')
+                        else:
+                            mv = db.query(Movies).filter(Movies.movie_id == getattr(st, 'movie_id', None)).first()
+                            movie_title = mv.title if mv else 'Unknown'
+
+                        # Lấy thời gian chiếu
+                        dt = getattr(st, 'show_datetime', None)
+                        if dt is not None:
+                            try:
+                                showtime_str = dt.strftime('%Y-%m-%d %H:%M')
+                            except Exception:
+                                showtime_str = str(dt)
+                        else:
+                            if hasattr(st, 'start_time'):
+                                showtime_str = str(getattr(st, 'start_time'))
+                            elif hasattr(st, 'show_time'):
+                                showtime_str = str(getattr(st, 'show_time'))
+                            else:
+                                showtime_str = 'Unknown'
+
+            # Cập nhật transaction
+            transaction.status = TransactionStatus.success
+            transaction.payment_ref_code = payment_result.transaction_id
+            db.commit()
+
+            # --- GỬI EMAIL (BỌC TRY-EXCEPT ĐỂ KHÔNG CRASH NẾU LỖI) ---
+            try:
+                self.send_booking_email(
+                    user=user,
+                    booking_code=booking_code,
+                    movie_title=movie_title,
+                    showtime_str=showtime_str,
+                    seats_list=seats_list
+                )
+            except Exception as email_error:
+                print(f"WARNING: Failed to send email for {booking_code}. Error: {email_error}")
+                print(traceback.format_exc())
+                # Không raise exception - vé đã tạo thành công
+
+            return {
+                "transaction_id": transaction.transaction_id,
+                "booking_code": booking_code,
+                "message": "Tickets created successfully"
+            }
+            
+        except HTTPException:
+            db.rollback()
+            raise
+        except Exception as e:
+            db.rollback()
+            print(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def send_booking_email(self, user: Users, booking_code: str, movie_title: str, 
+                          showtime_str: str, seats_list: list):
+        """
+        Hàm gửi email tách riêng - không cần db session vì chỉ gửi email
+        
+        Raises:
+            Exception: Nếu gửi email thất bại
+        """
         ticket_info = {
             'booking_id': booking_code,
             'customer_name': user.full_name or user.name or 'Customer',
@@ -364,7 +485,6 @@ class PaymentService:
             'seats': seats_list
         }
         
-        # Lấy config email
         email_service = EmailService(
             smtp_server=settings.EMAIL_HOST,
             smtp_port=settings.EMAIL_PORT,
@@ -372,10 +492,11 @@ class PaymentService:
             password=settings.EMAIL_PASSWORD,
             sender_name=settings.EMAIL_SENDER_NAME
         )
+        
         email_service.send_ticket_email(to_email=user.email, ticket_info=ticket_info)
 
     def calculate_ticket_price(self, db: Session, seat_id: int, showtime_id: int) -> int:
-        """Tính giá vé"""
+        """Tính giá vé dựa trên loại ghế và giá suất chiếu"""
         from app.models.seats import Seats
         from app.models.showtimes import Showtimes
         from app.models.seat_templates import SeatTypeEnum
@@ -387,10 +508,15 @@ class PaymentService:
             raise HTTPException(status_code=404, detail="Seat or Showtime not found")
         
         price = float(showtime.ticket_price)
-        if seat.seat_type == SeatTypeEnum.vip: price *= 1.5
-        elif seat.seat_type == SeatTypeEnum.couple: price *= 2.0
+        
+        # Áp dụng hệ số nhân theo loại ghế
+        if seat.seat_type == SeatTypeEnum.vip:
+            price *= 1.5
+        elif seat.seat_type == SeatTypeEnum.couple:
+            price *= 2.0
             
         return int(price)
 
     def get_payment_by_order_id(self, db: Session, order_id: str) -> Optional[Payment]:
+        """Lấy payment theo order_id"""
         return db.query(Payment).filter(Payment.order_id == order_id).first()
