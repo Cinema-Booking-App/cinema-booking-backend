@@ -7,6 +7,9 @@ from app.schemas.payments import PaymentRequest
 from app.utils.response import success_response
 from app.core.security import get_current_active_user
 from app.models.users import Users
+from typing import Optional
+from datetime import datetime
+from app.models.payments import VNPayPayment, PaymentStatusEnum
 router = APIRouter()
 payment_service = PaymentService()
 
@@ -124,6 +127,121 @@ async def get_payment_status(
             "message": "Payment status retrieved successfully"
         }
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/vnpay/history")
+async def vnpay_history(
+    page: int = 1,
+    limit: int = 50,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    status: Optional[str] = None,
+    user_id: Optional[int] = None,
+    order_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_active_user),
+):
+    """
+    Get paginated VNPay payment history from DB. Non-admin users only see their own records.
+    """
+    try:
+        # Authorization: determine if current user is admin by role name
+        is_admin = False
+        try:
+            is_admin = any((r.role_name or '').lower() == 'admin' for r in getattr(current_user, 'roles', []) )
+        except Exception:
+            is_admin = False
+
+        # Non-admins can only view their own payments
+        if user_id and not is_admin and user_id != current_user.user_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+        query = db.query(VNPayPayment)
+
+        # apply ownership restriction for non-admins
+        if not is_admin:
+            query = query.filter(VNPayPayment.user_id == current_user.user_id)
+        else:
+            if user_id:
+                query = query.filter(VNPayPayment.user_id == user_id)
+
+        if order_id:
+            query = query.filter(VNPayPayment.order_id.ilike(f"%{order_id}%"))
+
+        if status:
+            # Expect status like SUCCESS / FAILED / PENDING
+            try:
+                status_enum = PaymentStatusEnum[status]
+                query = query.filter(VNPayPayment.payment_status == status_enum)
+            except KeyError:
+                raise HTTPException(status_code=400, detail="Invalid status")
+
+        # date filters: try parse ISO strings and filter by vnp_pay_date if present, else created_at
+        def parse_dt(s: Optional[str]):
+            if not s:
+                return None
+            try:
+                return datetime.fromisoformat(s)
+            except Exception:
+                return None
+
+        start_dt = parse_dt(start_date)
+        end_dt = parse_dt(end_date)
+        if start_dt:
+            # vnp_pay_date stored as string in model; try compare on created_at fallback
+            try:
+                query = query.filter(VNPayPayment.vnp_pay_date >= start_dt)
+            except Exception:
+                query = query.filter(VNPayPayment.created_at >= start_dt)
+        if end_dt:
+            try:
+                query = query.filter(VNPayPayment.vnp_pay_date <= end_dt)
+            except Exception:
+                query = query.filter(VNPayPayment.created_at <= end_dt)
+
+        total = query.count()
+        # enforce sensible limits
+        if limit <= 0:
+            limit = 50
+        if limit > 500:
+            limit = 500
+
+        items = query.order_by(VNPayPayment.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+
+        # Map items to serializable dicts
+        result_items = []
+        for it in items:
+            # VNPayPayment fields
+            result_items.append({
+                'payment_id': getattr(it, 'payment_id', None),
+                'order_id': getattr(it, 'order_id', None),
+                'vnp_txn_ref': getattr(it, 'vnp_txn_ref', None),
+                'vnp_transaction_no': getattr(it, 'vnp_transaction_no', None),
+                'vnp_bank_code': getattr(it, 'vnp_bank_code', None),
+                'vnp_card_type': getattr(it, 'vnp_card_type', None),
+                'vnp_pay_date': getattr(it, 'vnp_pay_date', None),
+                'vnp_response_code': getattr(it, 'vnp_response_code', None),
+                'amount': getattr(it, 'amount', None),
+                'payment_status': getattr(getattr(it, 'payment_status', None), 'value', None),
+                'user_id': getattr(it, 'user_id', None),
+                'created_at': getattr(it, 'created_at', None),
+                'updated_at': getattr(it, 'updated_at', None),
+            })
+
+        response = {
+            'items': result_items,
+            'page': page,
+            'limit': limit,
+            'total': total,
+            'total_pages': (total + limit - 1) // limit if total and limit else 0
+        }
+
+        return success_response(response)
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
