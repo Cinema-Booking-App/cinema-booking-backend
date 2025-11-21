@@ -23,6 +23,7 @@ class Tickets(Base):
     booking_time = Column(DateTime, server_default=func.now())
     status = Column(Enum(TicketStatusEnum, name="ticket_status"), default=TicketStatusEnum.pending, server_default="pending")
     cancelled_at = Column(DateTime, nullable=True)
+    qr_code = Column(String, nullable=True)  # Lưu ảnh QR code base64
     # Thời điểm xác thực vé thành công (quét QR)
     # validated_at = Column(DateTime, nullable=True)
 
