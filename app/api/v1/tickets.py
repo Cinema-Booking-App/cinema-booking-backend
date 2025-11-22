@@ -15,6 +15,7 @@ from app.core.token_utils import create_token
 from datetime import timedelta
 
 
+
 router =APIRouter()
 @router.get("/tickets")
 def read_tickets(
@@ -52,6 +53,7 @@ def verify_ticket_by_qr(
     # _ = Depends(get_current_active_user),
 ):
     return success_response(verify_ticket_qr(db, verify_in))
+
 
 
 @router.get("/tickets/my")
@@ -141,6 +143,7 @@ def get_ticket_detail(ticket_id: int, db: Session = Depends(get_db)):
         # Room info
         "room_name": getattr(room, "room_name", None)
     })
+  
 # Hủy vé
 @router.post("/tickets/{ticket_id}/cancel")
 def cancel_ticket(
