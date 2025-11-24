@@ -42,7 +42,8 @@ def get_all_bookings(db: Session):
                     'printed': False,
                     'received': False,
                     'refunded': False,
-                    'qr': None,  # sẽ gán sau
+                    'qr_code': None,  # sẽ gán sau
+                    'ts': None,  # internal timestamp for sorting (epoch seconds)
                 }
             # seat code/type
             seat_code = getattr(t.seat, 'seat_code', None)
@@ -59,6 +60,7 @@ def get_all_bookings(db: Session):
                 grouped[code]['email'] = t.user.email
                 grouped[code]['phone'] = t.user.phone
             # showtime/movie
+            dt = None
             if t.showtime and t.showtime.movie:
                 grouped[code]['movie'] = t.showtime.movie.title
                 # format showtime
@@ -68,10 +70,28 @@ def get_all_bookings(db: Session):
                     grouped[code]['showtime'] = f"{dt.strftime('%H:%M')} - {room}" if dt else None
                     grouped[code]['date'] = dt.strftime('%Y-%m-%d') if dt else None
                 except Exception:
-                    pass
+                    dt = None
+
+            # Compute internal timestamp for sorting: prefer ticket.booking_time, fallback to showtime.show_datetime
+            candidate_ts = None
+            bt = getattr(t, 'booking_time', None)
+            if bt:
+                try:
+                    candidate_ts = int(bt.timestamp())
+                except Exception:
+                    candidate_ts = None
+            if candidate_ts is None and dt:
+                try:
+                    candidate_ts = int(dt.timestamp())
+                except Exception:
+                    candidate_ts = None
+            if candidate_ts is not None:
+                # keep the newest timestamp among tickets in the same booking
+                if grouped[code].get('ts') is None or candidate_ts > grouped[code].get('ts'):
+                    grouped[code]['ts'] = candidate_ts
             # Gán qr cho booking nếu chưa có (ưu tiên qr_token, fallback về code)
-            if grouped[code]['qr'] is None:
-                    grouped[code]['qr'] = getattr(t, 'qr_code', None) or code
+            if grouped[code]['qr_code'] is None:
+                    grouped[code]['qr_code'] = getattr(t, 'qr_code', None) or code
             # status inference: if any ticket is refunded/cancelled
             if str(t.status) == 'cancelled':
                 grouped[code]['refunded'] = True
@@ -85,6 +105,13 @@ def get_all_bookings(db: Session):
             # status aggregation
             item['status'] = 'Đã thanh toán' if any(True for ti in item['tickets']) else 'unknown'
             result.append(item)
+        # Sort by timestamp (newest first). If no timestamp, treat as 0.
+        result.sort(key=lambda it: it.get('ts') or 0, reverse=True)
+        # remove internal timestamp before returning
+        for it in result:
+            if 'ts' in it:
+                it.pop('ts', None)
+
         return result
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
