@@ -1,3 +1,8 @@
+from app.core.redis_client import redis_client
+# API test kết nối Redis
+from fastapi import Response
+
+
 import redis.asyncio as redis
 redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
@@ -12,7 +17,15 @@ from app.services.reservations_service import get_reserved_seats
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
+@router.get("/redis/ping")
+async def redis_ping():
+    """Kiểm tra kết nối Redis (async)"""
+    try:
+        pong = await redis_client.ping() if redis_client else False
+        return {"status": "success" if pong else "error", "pong": pong}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
 @router.websocket("/ws/seats/{showtime_id}")
 async def websocket_endpoint(
     websocket: WebSocket, 
