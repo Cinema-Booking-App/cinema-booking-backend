@@ -1,6 +1,9 @@
 import redis
 from app.core.config import settings
 
+import logging
+logger = logging.getLogger(__name__)
+
 redis_client = None
 if getattr(settings, 'REDIS_ENABLED', False):
     try:
@@ -11,11 +14,14 @@ if getattr(settings, 'REDIS_ENABLED', False):
             password=getattr(settings, 'REDIS_PASSWORD', None),
             decode_responses=True
         )
+        # Test kết nối
+        if redis_client.ping():
+            logger.info("Đã kết nối Redis thành công")
+        else:
+            logger.warning("Kết nối Redis thất bại (ping không trả về true)")
     except Exception as e:
         redis_client = None
-        # Không báo lỗi, chỉ log nếu cần
-        import logging
-        logging.getLogger(__name__).warning(f"Không thể kết nối Redis: {e}")
+        logger.warning(f"Không thể kết nối Redis: {e}")
 
 def delete_pattern(pattern: str):
     if redis_client:
