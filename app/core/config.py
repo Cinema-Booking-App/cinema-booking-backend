@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     VNPAY_API_URL: str = ""  # VNPay API URL for queries
     VNPAY_RETURN_URL: str = ""  # Backend return URL
     VNPAY_IPN_URL: str = ""  # Backend IPN URL
+
+    # Redis Configuration
+    REDIS_ENABLED: bool = False
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""
     
     class Config:
         env_file = ".env"

@@ -166,6 +166,14 @@ def update_loyalty_points(db: Session, user_id: int, points: int):
         user.loyalty_points = points
         if user.loyalty_points < 0:
             user.loyalty_points = 0
+
+        # Tự động cập nhật rank dựa trên tổng số điểm tích lũy
+        ranks = db.query(Ranks).order_by(Ranks.spending_target.asc()).all()
+        for rank in reversed(ranks):
+            if user.loyalty_points >= rank.spending_target:
+                user.rank_id = rank.rank_id
+                break
+
         db.commit()
         db.refresh(user)
         return UserResponse(

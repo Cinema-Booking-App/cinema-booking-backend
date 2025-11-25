@@ -28,7 +28,9 @@ from app.schemas.payments import (
     PaymentStatus,
     PaymentMethod
 )
-
+from app.models.seats import Seats
+from app.models.showtimes import Showtimes
+from app.models.seat_templates import SeatTypeEnum
 class PaymentService:
     """Service xử lý thanh toán"""
     
@@ -456,6 +458,24 @@ class PaymentService:
                             else:
                                 showtime_str = 'Unknown'
 
+
+            # Tích điểm cho user khi đặt vé online
+            if user:
+                total_points = 0
+                for ticket_id in created_tickets:
+                    ticket = db.query(Tickets).filter(Tickets.ticket_id == ticket_id).first()
+                    seat = db.query(Seats).filter(Seats.seat_id == ticket.seat_id).first()
+                    point_ratio = 1.0
+                    if seat.seat_type == SeatTypeEnum.vip:
+                        point_ratio = 1.5
+                    elif seat.seat_type == SeatTypeEnum.couple:
+                        point_ratio = 2.0
+                    points = int((ticket.price / 10000) * point_ratio)
+                    total_points += points
+                user.loyalty_points += total_points
+                db.commit()
+                print(f"[LOYALTY] Cộng {total_points} điểm cho user {user.user_id} khi đặt vé online.")
+
             # Cập nhật transaction
             transaction.status = TransactionStatus.success
             transaction.payment_ref_code = payment_result.transaction_id
@@ -516,10 +536,7 @@ class PaymentService:
         email_service.send_ticket_email(to_email=user.email, ticket_info=ticket_info)
 
     def calculate_ticket_price(self, db: Session, seat_id: int, showtime_id: int) -> int:
-        """Tính giá vé dựa trên loại ghế và giá suất chiếu"""
-        from app.models.seats import Seats
-        from app.models.showtimes import Showtimes
-        from app.models.seat_templates import SeatTypeEnum
+
         
         seat = db.query(Seats).filter(Seats.seat_id == seat_id).first()
         showtime = db.query(Showtimes).filter(Showtimes.showtime_id == showtime_id).first()
