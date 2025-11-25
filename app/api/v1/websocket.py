@@ -1,3 +1,5 @@
+import redis.asyncio as redis
+redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
 import json
@@ -50,26 +52,29 @@ async def send_initial_data(websocket: WebSocket, showtime_id: int, db: Session)
             await send_error(websocket, showtime_id, "Invalid showtime ID")
             return
         
-        # Lấy danh sách ghế đã được đặt
-        reserved_seats = get_reserved_seats(showtime_id, db)
-        
+        # Lấy danh sách ghế đã được đặt từ Redis
+        keys = await redis_client.keys(f"seat:{showtime_id}:*")
+        reserved_seats = []
+        for key in keys:
+            seat_id = int(key.split(":")[-1])
+            session_id = await redis_client.get(key)
+            reserved_seats.append({
+                "seat_id": seat_id,
+                "status": "pending",  # hoặc lấy từ Redis nếu lưu
+                "expires_at": None,    # Redis tự expire key
+                "user_session": session_id
+            })
+
         initial_data = {
             "type": "initial_data",
             "showtime_id": showtime_id,
             "data": {
-                "reserved_seats": [
-                    {
-                        "seat_id": seat.seat_id,
-                        "status": seat.status,
-                        "expires_at": seat.expires_at.isoformat() if seat.expires_at else None,
-                        "user_session": seat.session_id
-                    } for seat in reserved_seats
-                ]
+                "reserved_seats": reserved_seats
             }
         }
-        
+
         await websocket.send_text(json.dumps(initial_data))
-        logger.info(f"📤 Sent initial data: {len(reserved_seats)} reserved seats")
+        logger.info(f"📤 Sent initial data: {len(reserved_seats)} reserved seats (Redis)")
         
     except Exception as e:
         logger.error(f"❌ Error sending initial data: {e}", exc_info=True)
@@ -98,7 +103,7 @@ async def handle_client_messages(websocket: WebSocket):
             # Thêm timeout để tránh treo vô thời hạn
             data = await asyncio.wait_for(
                 websocket.receive_text(), 
-                timeout=60.0  # 60 giây timeout
+                timeout=10.0  # 10 giây timeout cho realtime nhanh hơn
             )
             
             message = json.loads(data)
