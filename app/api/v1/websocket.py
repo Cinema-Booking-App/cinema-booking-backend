@@ -133,6 +133,29 @@ async def handle_client_messages(websocket: WebSocket):
                     "timestamp": message.get("timestamp")
                 }))
                 
+
+            elif message_type == "reserve_seat":
+                # Xử lý khi client chọn ghế
+                seat_id = message.get("seat_id")
+                showtime_id = message.get("showtime_id")
+                session_id = message.get("session_id")
+                # Ghi trạng thái ghế vào Redis
+                if seat_id and showtime_id and session_id:
+                    await redis_client.set(f"seat:{showtime_id}:{seat_id}", session_id, ex=900)
+                    logger.info(f"🪑 Seat reserved: showtime={showtime_id} seat={seat_id} session={session_id}")
+                    # Broadcast tới tất cả client cùng showtime
+                    update_msg = {
+                        "type": "seat_update",
+                        "showtime_id": showtime_id,
+                        "data": {
+                            "seat_id": seat_id,
+                            "session_id": session_id,
+                            "status": "pending"
+                        }
+                    }
+                    await websocket_manager.broadcast(showtime_id, json.dumps(update_msg))
+                else:
+                    logger.warning(f"❌ reserve_seat missing params: {message}")
             else:
                 logger.debug(f"📨 Received message type: {message_type}")
                 
