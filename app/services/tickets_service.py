@@ -236,7 +236,24 @@ def create_ticket_directly(db : Session, ticket_in : TicketsCreate):
         db.commit()
         db.refresh(db_transaction)
         db.refresh(db_ticket)
-         # Chuẩn bị dữ liệu response
+
+        # Tích điểm cho user
+        user = db.query(Users).filter(Users.user_id == ticket_in.user_id).first()
+        if user:
+            # Quy tắc: mỗi loại ghế sẽ có số điểm khác nhau, ví dụ:
+            # regular: 1 điểm/10k, vip: 1.5 điểm/10k, couple: 2 điểm/10k
+            point_ratio = 1.0
+            if seat.seat_type == SeatTypeEnum.vip:
+                point_ratio = 1.5
+            elif seat.seat_type == SeatTypeEnum.couple:
+                point_ratio = 2.0
+            # Tính điểm dựa trên giá vé
+            points = int((base_price / 10000) * point_ratio)
+            user.loyalty_points += points
+            db.commit()
+            print(f"[LOYALTY] Cộng {points} điểm cho user {user.user_id} (loại ghế: {seat.seat_type})")
+
+        # Chuẩn bị dữ liệu response
         response_data = {
             "ticket_id": db_ticket.ticket_id,
             "user_id": db_ticket.user_id,
