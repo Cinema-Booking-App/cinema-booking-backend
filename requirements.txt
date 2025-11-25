@@ -49,3 +49,7 @@ Pillow
 qrcode[pil]
 redis==5.0.1
 
+
+
+
+
