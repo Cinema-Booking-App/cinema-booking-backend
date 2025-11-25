@@ -31,8 +31,17 @@ def resend_verification(email: str, db: Session = Depends(get_db)):
 
 # Lấy thông tin người dùng đã đăng nhập
 @router.get('/me')
-def get_user_info(current_user:UserResponse = Depends(get_current_user)):
-    return success_response(current_user)
+def get_user_info(current_user:UserResponse = Depends(get_current_user), db: Session = Depends(get_db)):
+    user_dict = current_user.dict()
+    # Truy vấn bảng ranks theo rank_id để lấy rank_name
+    rank_name = None
+    if user_dict.get("rank_id"):
+        from app.models.ranks import Ranks
+        rank = db.query(Ranks).filter(Ranks.rank_id == user_dict["rank_id"]).first()
+        if rank:
+            rank_name = rank.rank_name
+    user_dict["rank_name"] = rank_name
+    return success_response(user_dict)
 
 
 # Logout endpoint - for stateless JWT this is a no-op, provided for frontend convenience

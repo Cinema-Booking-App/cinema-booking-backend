@@ -77,6 +77,9 @@ def init_admin_user(db: Session):
     # Hash mật khẩu
     hashed_password = pwd_context.hash(admin_password)
 
+    # Lấy rank Bronze mặc định
+    from app.models.ranks import Ranks
+    bronze_rank = db.query(Ranks).filter(Ranks.rank_name == "Bronze").first()
     new_admin = Users(
         full_name="Super Admin",
         email=admin_email,
@@ -86,6 +89,7 @@ def init_admin_user(db: Session):
         is_verified=True,
         loyalty_points=0,
         total_spent=0,
+        rank_id=bronze_rank.rank_id if bronze_rank else None,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -132,7 +136,13 @@ def initialize_default_data(db: Session):
     try:
         # Tạo roles trước
         init_roles(db)
-        
+
+        # Tạo các rank mặc định
+        try:
+            init_ranks(db)
+        except Exception as e:
+            logger.warning(f"⚠️ Không thể khởi tạo các rank mặc định: {e}")
+
         # Tạo admin user
         init_admin_user(db)
 
@@ -147,13 +157,76 @@ def initialize_default_data(db: Session):
             init_counter_permission(db)
         except Exception as e:
             logger.warning(f"⚠️ Không thể khởi tạo permission counter: {e}")
-        
+
         logger.info("✅ Hoàn thành khởi tạo dữ liệu mặc định!")
-        
+
     except Exception as e:
         logger.error(f"❌ Lỗi khởi tạo dữ liệu: {str(e)}")
         db.rollback()
         raise
+def init_ranks(db: Session):
+    """Khởi tạo các rank mặc định cho hệ thống"""
+    from app.models.ranks import Ranks
+    default_ranks = [
+        {
+            "rank_name": "Bronze",
+            "spending_target": 0,
+            "ticket_percent": 1,
+            "combo_percent": 1,
+            "is_default": True
+        },
+        {
+            "rank_name": "Silver",
+            "spending_target": 2000000,
+            "ticket_percent": 2,
+            "combo_percent": 2,
+            "is_default": False
+        },
+        {
+            "rank_name": "Gold",
+            "spending_target": 5000000,
+            "ticket_percent": 3,
+            "combo_percent": 3,
+            "is_default": False
+        },
+        {
+            "rank_name": "Platinum",
+            "spending_target": 10000000,
+            "ticket_percent": 4,
+            "combo_percent": 4,
+            "is_default": False
+        },
+        {
+            "rank_name": "Diamond",
+            "spending_target": 20000000,
+            "ticket_percent": 5,
+            "combo_percent": 5,
+            "is_default": False
+        },
+    ]
+    created_count = 0
+    for rank_data in default_ranks:
+        existing_rank = db.query(Ranks).filter(Ranks.rank_name == rank_data["rank_name"]).first()
+        if existing_rank:
+            logger.info(f"ℹ️ Rank đã tồn tại: {rank_data['rank_name']}")
+            continue
+        try:
+            new_rank = Ranks(**rank_data)
+            db.add(new_rank)
+            db.flush()
+            created_count += 1
+            logger.info(f"✅ Tạo rank: {rank_data['rank_name']}")
+        except IntegrityError:
+            db.rollback()
+            logger.info(f"⚠️ Race condition – rank đã được tạo bởi worker khác: {rank_data['rank_name']}")
+    if created_count > 0:
+        try:
+            db.commit()
+            logger.info(f"🎉 Đã tạo {created_count} rank mới")
+        except IntegrityError:
+            db.rollback()
+            logger.warning("⚠️ Commit ranks gặp lỗi, có thể do worker khác commit trước. Bỏ qua.")
+    return created_count
 
 
 def init_counter_user(db: Session):
@@ -180,6 +253,9 @@ def init_counter_user(db: Session):
     # Hash mật khẩu
     hashed_password = pwd_context.hash(counter_password)
 
+    # Lấy rank Bronze mặc định
+    from app.models.ranks import Ranks
+    bronze_rank = db.query(Ranks).filter(Ranks.rank_name == "Bronze").first()
     new_user = Users(
         full_name="Counter Staff",
         email=counter_email,
@@ -189,6 +265,7 @@ def init_counter_user(db: Session):
         is_verified=True,
         loyalty_points=0,
         total_spent=0,
+        rank_id=bronze_rank.rank_id if bronze_rank else None,
     )
 
     try:

@@ -39,6 +39,7 @@ class UserResponse(UserBase):
     last_login: Optional[datetime] = None
     loyalty_points: int
     rank_name: Optional[str] = None
+    rank_id: Optional[int] = None
     total_spent: float
     roles: List[RoleResponse] = []
     created_at: Optional[datetime] = None
