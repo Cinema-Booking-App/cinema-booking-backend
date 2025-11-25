@@ -1,3 +1,10 @@
+from app.core.redis_client import redis_client
+# API test kết nối Redis
+from fastapi import Response
+
+
+import redis.asyncio as redis
+redis_client = redis.from_url("redis://localhost:6379", decode_responses=True)
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
 import json
@@ -10,7 +17,15 @@ from app.services.reservations_service import get_reserved_seats
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
+@router.get("/redis/ping")
+async def redis_ping():
+    """Kiểm tra kết nối Redis (async)"""
+    try:
+        pong = await redis_client.ping() if redis_client else False
+        return {"status": "success" if pong else "error", "pong": pong}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
 @router.websocket("/ws/seats/{showtime_id}")
 async def websocket_endpoint(
     websocket: WebSocket, 
@@ -50,26 +65,29 @@ async def send_initial_data(websocket: WebSocket, showtime_id: int, db: Session)
             await send_error(websocket, showtime_id, "Invalid showtime ID")
             return
         
-        # Lấy danh sách ghế đã được đặt
-        reserved_seats = get_reserved_seats(showtime_id, db)
-        
+        # Lấy danh sách ghế đã được đặt từ Redis
+        keys = await redis_client.keys(f"seat:{showtime_id}:*")
+        reserved_seats = []
+        for key in keys:
+            seat_id = int(key.split(":")[-1])
+            session_id = await redis_client.get(key)
+            reserved_seats.append({
+                "seat_id": seat_id,
+                "status": "pending",  # hoặc lấy từ Redis nếu lưu
+                "expires_at": None,    # Redis tự expire key
+                "user_session": session_id
+            })
+
         initial_data = {
             "type": "initial_data",
             "showtime_id": showtime_id,
             "data": {
-                "reserved_seats": [
-                    {
-                        "seat_id": seat.seat_id,
-                        "status": seat.status,
-                        "expires_at": seat.expires_at.isoformat() if seat.expires_at else None,
-                        "user_session": seat.session_id
-                    } for seat in reserved_seats
-                ]
+                "reserved_seats": reserved_seats
             }
         }
-        
+
         await websocket.send_text(json.dumps(initial_data))
-        logger.info(f"📤 Sent initial data: {len(reserved_seats)} reserved seats")
+        logger.info(f"📤 Sent initial data: {len(reserved_seats)} reserved seats (Redis)")
         
     except Exception as e:
         logger.error(f"❌ Error sending initial data: {e}", exc_info=True)
@@ -98,7 +116,7 @@ async def handle_client_messages(websocket: WebSocket):
             # Thêm timeout để tránh treo vô thời hạn
             data = await asyncio.wait_for(
                 websocket.receive_text(), 
-                timeout=60.0  # 60 giây timeout
+                timeout=10.0  # 10 giây timeout cho realtime nhanh hơn
             )
             
             message = json.loads(data)
@@ -115,6 +133,29 @@ async def handle_client_messages(websocket: WebSocket):
                     "timestamp": message.get("timestamp")
                 }))
                 
+
+            elif message_type == "reserve_seat":
+                # Xử lý khi client chọn ghế
+                seat_id = message.get("seat_id")
+                showtime_id = message.get("showtime_id")
+                session_id = message.get("session_id")
+                # Ghi trạng thái ghế vào Redis
+                if seat_id and showtime_id and session_id:
+                    await redis_client.set(f"seat:{showtime_id}:{seat_id}", session_id, ex=900)
+                    logger.info(f"🪑 Seat reserved: showtime={showtime_id} seat={seat_id} session={session_id}")
+                    # Broadcast tới tất cả client cùng showtime
+                    update_msg = {
+                        "type": "seat_update",
+                        "showtime_id": showtime_id,
+                        "data": {
+                            "seat_id": seat_id,
+                            "session_id": session_id,
+                            "status": "pending"
+                        }
+                    }
+                    await websocket_manager.broadcast(showtime_id, json.dumps(update_msg))
+                else:
+                    logger.warning(f"❌ reserve_seat missing params: {message}")
             else:
                 logger.debug(f"📨 Received message type: {message_type}")
                 
