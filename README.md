@@ -2,7 +2,7 @@
 
 Các bước thực hiện:
 
-**Tạo migration (nếu cần thay đổi database):**
+**Tạo migration nếu cần thay đổi database:**
 ```bash
 alembic revision --autogenerate -m "Tên migration"
 ```
